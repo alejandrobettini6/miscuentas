@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { getDataMode } from '@/config/env'
+import { getErrorMessage } from '@/utils/errors'
 
 export function LoginPage() {
   const { login } = useAuthContext()
@@ -19,7 +20,7 @@ export function LoginPage() {
     try {
       await login(email, password)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'No se pudo iniciar sesión')
+      toast.error(getErrorMessage(error, 'No se pudo iniciar sesión'))
     } finally {
       setIsSubmitting(false)
     }

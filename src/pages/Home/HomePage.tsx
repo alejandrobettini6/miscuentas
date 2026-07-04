@@ -18,6 +18,7 @@ import { CurrencyConverter } from '@/services/CurrencyConverter'
 import { ExpenseService } from '@/services/ExpenseService'
 import { AccountType, Category, Currency } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel, Expense } from '@/types/models'
+import { getErrorMessage } from '@/utils/errors'
 import {
   isValidOtrosGrandeName,
   normalizeOtrosGrandeName,
@@ -129,7 +130,7 @@ export function HomePage() {
       setUndoExpenseId(expense.id)
       setUndoDeadline(createUndoDeadline())
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al registrar')
+      toast.error(getErrorMessage(error, 'Error al registrar'))
     } finally {
       setBusyRowKey(null)
     }
@@ -157,7 +158,7 @@ export function HomePage() {
       setUndoExpenseId(expense.id)
       setUndoDeadline(createUndoDeadline())
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al registrar')
+      toast.error(getErrorMessage(error, 'Error al registrar'))
     } finally {
       setBusyRowKey(null)
     }

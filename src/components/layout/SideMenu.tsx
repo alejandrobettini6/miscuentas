@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/utils/errors'
 
 interface SideMenuProps {
   open: boolean
@@ -74,7 +75,7 @@ export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProp
       }
       toast.success('Guardado')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al guardar')
+      toast.error(getErrorMessage(error, 'Error al guardar'))
     }
   }
 
