@@ -10,8 +10,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  // GitHub Pages: cambiar a '/MISCUENTAS/' cuando se despliegue
-  base: '/',
+  base: '/miscuentas/',
   test: {
     globals: true,
     environment: 'node',
