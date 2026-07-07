@@ -128,32 +128,59 @@ El período de gastos **no se corta por calendario**: acumula hasta que hagas **
 
 ---
 
-## Supabase (más adelante)
+## Supabase Auth (reset password + Google)
 
-El schema está en:
+### URL Configuration (Supabase Dashboard)
 
-```text
-supabase/schema.sql
-```
+**Authentication → URL Configuration**
 
-Cuando quieras conectar:
+- **Site URL:** `https://alejandrobettini6.github.io/miscuentas/`
+- **Redirect URLs:**
+  - `http://localhost:5173/**`
+  - `http://192.168.*.*:5173/**`
+  - `https://alejandrobettini6.github.io/miscuentas/**`
 
-1. En Supabase → SQL Editor → pegá y ejecutá `supabase/schema.sql`.
-2. Authentication → Providers → Email habilitado.
-3. Authentication → Users → **Add user** (email + password). Desactivá confirmación de email si está activa.
-4. En `.env` poné `VITE_DATA_MODE=supabase` y las keys del proyecto.
-5. Reiniciá `npm run dev`.
-6. Login con el usuario creado en Supabase.
+### Restablecer contraseña
 
-Los repositorios de Supabase ya están implementados en `src/repositories/supabase/`.
+1. Login → **¿Olvidaste tu contraseña?**
+2. Ingresá email → Supabase envía link
+3. Abrí el link → pantalla **Nueva contraseña**
+
+### Login con Google
+
+**Google Cloud Console → OAuth consent screen**
+
+- **App name:** `MisCuentas`
+- **Privacy policy:** `https://alejandrobettini6.github.io/miscuentas/privacy.html`
+
+**Google Cloud Console → Credentials → OAuth 2.0 Client ID (Web)**
+
+- **JavaScript origins:** `http://localhost:5173`, `https://alejandrobettini6.github.io`
+- **Redirect URI:** `https://TU_PROYECTO.supabase.co/auth/v1/callback`
+
+**Supabase → Authentication → Providers → Google**
+
+- Enable + Client ID + Client Secret de Google
+
+Nota: el subdominio `*.supabase.co` que aparece en la pantalla de Google **no es un secreto**; es el identificador público del proyecto. Para ocultarlo por completo se necesita Custom Domain de Supabase (de pago).
 
 ---
 
-## GitHub Pages (más adelante)
+## Supabase (base de datos)
 
-1. En `vite.config.ts`, cambiá `base` a `'/NOMBRE_DEL_REPO/'`.
-2. `npm run build`
-3. Publicá la carpeta `dist/` con GitHub Pages.
+El schema está en `supabase/schema.sql`. Ejecutalo en SQL Editor, habilitá Email en Auth, creá usuario manualmente, y usá `VITE_DATA_MODE=supabase`.
+
+---
+
+## GitHub Pages
+
+Deploy automático con GitHub Actions al pushear a `main`.
+
+**URL:** https://alejandrobettini6.github.io/miscuentas/
+
+**Secrets (Settings → Secrets → Actions):** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_DATA_MODE=supabase`
+
+**Pages:** Settings → Source → **GitHub Actions**
 
 ---
 

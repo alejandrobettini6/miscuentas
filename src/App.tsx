@@ -4,6 +4,7 @@ import { AuthProvider, useAuthContext } from '@/contexts/AuthContext'
 import { SettingsProvider } from '@/contexts/SettingsContext'
 import { HomePage } from '@/pages/Home/HomePage'
 import { LoginPage } from '@/pages/Login/LoginPage'
+import { UpdatePasswordPage } from '@/pages/Login/UpdatePasswordPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -16,7 +17,7 @@ const queryClient = new QueryClient({
 })
 
 function AppRoutes() {
-  const { user, isLoading } = useAuthContext()
+  const { user, isLoading, recoveryMode } = useAuthContext()
 
   if (isLoading) {
     return (
@@ -24,6 +25,10 @@ function AppRoutes() {
         Cargando…
       </div>
     )
+  }
+
+  if (recoveryMode) {
+    return <UpdatePasswordPage />
   }
 
   return user ? <HomePage /> : <LoginPage />
