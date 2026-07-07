@@ -5,10 +5,12 @@ import { useSettingsContext } from '@/contexts/SettingsContext'
 import { ExportService } from '@/services/ExportService'
 import type { Expense } from '@/types/models'
 import {
+  formatAmountFromNumber,
   isValidExchangeRate,
   isValidMonthlyLimit,
   parseAmountInput,
 } from '@/validators/amount'
+import { AmountInput } from '@/components/ui/AmountInput'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
@@ -47,7 +49,7 @@ export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProp
         : field === 'usdCash'
           ? settings.usdCash
           : settings.monthlyLimit
-    setFieldValue(String(value))
+    setFieldValue(formatAmountFromNumber(value))
     setActiveField(field)
   }
 
@@ -171,11 +173,10 @@ export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProp
         }
         onClose={() => setActiveField(null)}
       >
-        <input
+        <AmountInput
           ref={inputRef}
-          inputMode="decimal"
           value={fieldValue}
-          onChange={(event) => setFieldValue(event.target.value)}
+          onChange={setFieldValue}
           onBlur={() => void saveField()}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {

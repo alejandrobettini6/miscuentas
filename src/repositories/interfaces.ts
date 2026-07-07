@@ -7,11 +7,23 @@ import type {
   User,
 } from '@/types/models'
 
+export type AuthEvent =
+  | 'SIGNED_IN'
+  | 'SIGNED_OUT'
+  | 'PASSWORD_RECOVERY'
+  | 'TOKEN_REFRESHED'
+  | 'USER_UPDATED'
+
 export interface AuthRepository {
   getSession(): Promise<User | null>
   login(email: string, password: string): Promise<User>
+  loginWithGoogle(): Promise<void>
+  resetPassword(email: string): Promise<void>
+  updatePassword(password: string): Promise<void>
   logout(): Promise<void>
-  onAuthStateChange(callback: (user: User | null) => void): () => void
+  onAuthStateChange(
+    callback: (user: User | null, event?: AuthEvent) => void,
+  ): () => void
 }
 
 export interface SettingsRepository {

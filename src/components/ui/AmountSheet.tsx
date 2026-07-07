@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Currency } from '@/types/enums'
+import { formatAmountFromNumber } from '@/validators/amount'
+import { AmountInput } from './AmountInput'
 import { Button } from './Button'
 
 interface AmountSheetProps {
@@ -29,7 +31,13 @@ export function AmountSheet({
     if (!open) return
     submittedRef.current = false
     cancelledRef.current = false
-    setAmount(initialAmount)
+    setAmount(
+      initialAmount
+        ? initialAmount.includes('.') || initialAmount.includes(',')
+          ? initialAmount
+          : formatAmountFromNumber(Number(initialAmount))
+        : '',
+    )
     setCurrency(initialCurrency)
     const timer = window.setTimeout(() => inputRef.current?.focus(), 50)
     return () => window.clearTimeout(timer)
@@ -54,7 +62,7 @@ export function AmountSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/30 p-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-5">
         <h2 className="mb-4 text-lg font-semibold">{title}</h2>
 
@@ -82,14 +90,11 @@ export function AmountSheet({
 
         <label className="mb-4 block" htmlFor="amount-input">
           <span className="sr-only">Importe</span>
-          <input
+          <AmountInput
             id="amount-input"
             ref={inputRef}
-            inputMode="decimal"
-            enterKeyHint="done"
-            autoComplete="off"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            onChange={setAmount}
             onBlur={() => {
               window.setTimeout(commit, 0)
             }}
