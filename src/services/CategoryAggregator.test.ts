@@ -24,10 +24,12 @@ describe('CategoryAggregator', () => {
   it('mantiene categorías fijas aunque estén en cero', () => {
     const rows = CategoryAggregator.buildRows([], AccountType.WHITE)
     expect(rows.some((r) => r.label === 'Super' && r.totalUsd === 0)).toBe(true)
+    expect(rows.some((r) => r.label === 'Impuestos' && r.totalUsd === 0)).toBe(true)
+    expect(rows.some((r) => r.label === 'Devoluciones' && r.totalUsd === 0)).toBe(true)
     expect(rows.some((r) => r.label === 'Otros' && r.totalUsd === 0)).toBe(true)
   })
 
-  it('acumula Otros Grandes por nombre y ordena por monto', () => {
+  it('acumula categorías personalizadas por nombre y ordena por monto', () => {
     const expenses = [
       expense({
         category: Category.OTHER,
@@ -68,6 +70,38 @@ describe('CategoryAggregator', () => {
     expect(grandes[1]?.label).toBe('Guitarra')
   })
 
+  it('agrupa nombres personalizados sin importar mayúsculas', () => {
+    const expenses = [
+      expense({
+        category: Category.OTHER,
+        description: 'Taxi',
+        usdAmount: 10,
+      }),
+      expense({
+        category: Category.OTHER,
+        description: 'taxi',
+        usdAmount: 5,
+      }),
+    ]
+    const rows = CategoryAggregator.buildRows(expenses, AccountType.WHITE)
+    const named = rows.filter((r) => r.isOtrosGrande)
+    expect(named).toHaveLength(1)
+    expect(named[0]?.totalUsd).toBe(15)
+  })
+
+  it('suma Devoluciones como monto negativo', () => {
+    const expenses = [
+      expense({
+        category: Category.REFUNDS,
+        originalAmount: -50,
+        usdAmount: -50,
+      }),
+    ]
+    const rows = CategoryAggregator.buildRows(expenses, AccountType.WHITE)
+    const refunds = rows.find((r) => r.label === 'Devoluciones')
+    expect(refunds?.totalUsd).toBe(-50)
+  })
+
   it('no mezcla cuentas', () => {
     const expenses = [
       expense({ accountType: AccountType.WHITE, usdAmount: 10 }),
@@ -76,10 +110,5 @@ describe('CategoryAggregator', () => {
     const white = CategoryAggregator.buildRows(expenses, AccountType.WHITE)
     const superRow = white.find((r) => r.label === 'Super')
     expect(superRow?.totalUsd).toBe(10)
-  })
-
-  it('umbral de Otros Grandes es estricto > 150', () => {
-    expect(CategoryAggregator.requiresOtrosGrandeName(150)).toBe(false)
-    expect(CategoryAggregator.requiresOtrosGrandeName(150.01)).toBe(true)
   })
 })

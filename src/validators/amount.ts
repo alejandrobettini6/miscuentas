@@ -50,14 +50,15 @@ export function isValidMonthlyLimit(value: number): boolean {
   return Number.isFinite(value) && value >= 0
 }
 
-/** Máximo dos palabras para Otros Grandes */
-export function isValidOtrosGrandeName(name: string): boolean {
+const CUSTOM_CATEGORY_NAME_MAX = 40
+
+/** Nombre opcional al registrar en Otros (vacío = Otros general). */
+export function isValidCustomCategoryName(name: string): boolean {
   const trimmed = name.trim().replace(/\s+/g, ' ')
   if (trimmed.length === 0) return false
-  const words = trimmed.split(' ')
-  return words.length >= 1 && words.length <= 2
+  return trimmed.length <= CUSTOM_CATEGORY_NAME_MAX
 }
 
-export function normalizeOtrosGrandeName(name: string): string {
+export function normalizeCustomCategoryName(name: string): string {
   return name.trim().replace(/\s+/g, ' ')
 }

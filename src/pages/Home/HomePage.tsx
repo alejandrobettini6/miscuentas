@@ -13,15 +13,12 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSummary } from '@/hooks/useSummary'
 import { useSettingsContext } from '@/contexts/SettingsContext'
-import { CategoryAggregator } from '@/services/CategoryAggregator'
-import { CurrencyConverter } from '@/services/CurrencyConverter'
-import { ExpenseService } from '@/services/ExpenseService'
 import { AccountType, Category, Currency } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel, Expense } from '@/types/models'
 import { getErrorMessage } from '@/utils/errors'
 import {
-  isValidOtrosGrandeName,
-  normalizeOtrosGrandeName,
+  isValidCustomCategoryName,
+  normalizeCustomCategoryName,
   parseAmountInput,
 } from '@/validators/amount'
 
@@ -46,11 +43,6 @@ export function HomePage() {
   const [accountType, setAccountType] = useState<AccountType>(AccountType.WHITE)
   const [menuOpen, setMenuOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<AmountMode>(null)
-  const [pendingOtros, setPendingOtros] = useState<{
-    amount: number
-    currency: Currency
-  } | null>(null)
-  const [otrosName, setOtrosName] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null)
   const [undoDeadline, setUndoDeadline] = useState<number | null>(null)
   const [undoExpenseId, setUndoExpenseId] = useState<string | null>(null)
@@ -68,7 +60,11 @@ export function HomePage() {
     setUndoExpenseId(null)
   }, [])
 
-  const handleAmountSubmit = async (rawAmount: string, currency: Currency) => {
+  const handleAmountSubmit = async (
+    rawAmount: string,
+    currency: Currency,
+    categoryName?: string,
+  ) => {
     if (!amountMode || !settings) {
       setAmountMode(null)
       return
@@ -98,18 +94,20 @@ export function HomePage() {
       }
 
       if (mode.row.category === Category.OTHER && !mode.row.isOtrosGrande) {
-        const rate = ExpenseService.resolveRate(accountType, currency, settings)
-        const usdAmount = CurrencyConverter.convertToUsd(amount, currency, rate)
-
-        if (CategoryAggregator.requiresOtrosGrandeName(usdAmount)) {
-          setPendingOtros({ amount, currency })
-          return
+        const trimmedName = categoryName?.trim() ?? ''
+        let description: string | null = null
+        if (trimmedName) {
+          if (!isValidCustomCategoryName(trimmedName)) {
+            toast.error('Nombre de categoría inválido (máx. 40 caracteres)')
+            return
+          }
+          description = normalizeCustomCategoryName(trimmedName)
         }
 
         const expense = await createExpense({
           accountType,
           category: Category.OTHER,
-          description: null,
+          description,
           originalAmount: amount,
           originalCurrency: currency,
         })
@@ -126,34 +124,6 @@ export function HomePage() {
         originalAmount: amount,
         originalCurrency: currency,
       })
-      toast.success('Movimiento registrado')
-      setUndoExpenseId(expense.id)
-      setUndoDeadline(createUndoDeadline())
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Error al registrar'))
-    } finally {
-      setBusyRowKey(null)
-    }
-  }
-
-  const confirmOtrosGrande = async () => {
-    if (!pendingOtros) return
-    if (!isValidOtrosGrandeName(otrosName)) {
-      toast.error('Usá una o dos palabras')
-      return
-    }
-
-    setBusyRowKey(`${Category.OTHER}:${normalizeOtrosGrandeName(otrosName)}`)
-    try {
-      const expense = await createExpense({
-        accountType,
-        category: Category.OTHER,
-        description: normalizeOtrosGrandeName(otrosName),
-        originalAmount: pendingOtros.amount,
-        originalCurrency: pendingOtros.currency,
-      })
-      setPendingOtros(null)
-      setOtrosName('')
       toast.success('Movimiento registrado')
       setUndoExpenseId(expense.id)
       setUndoDeadline(createUndoDeadline())
@@ -191,6 +161,11 @@ export function HomePage() {
       toast.error('No se pudo deshacer')
     }
   }
+
+  const showCategoryName =
+    amountMode?.type === 'create' &&
+    amountMode.row.category === Category.OTHER &&
+    !amountMode.row.isOtrosGrande
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[480px] px-4 pb-28">
@@ -251,7 +226,7 @@ export function HomePage() {
         }
         initialAmount={
           amountMode?.type === 'edit'
-            ? String(amountMode.expense.originalAmount)
+            ? String(Math.abs(amountMode.expense.originalAmount))
             : ''
         }
         initialCurrency={
@@ -259,42 +234,12 @@ export function HomePage() {
             ? amountMode.expense.originalCurrency
             : Currency.USD
         }
-        onSubmit={(amount, currency) => void handleAmountSubmit(amount, currency)}
+        showCategoryName={showCategoryName}
+        onSubmit={(amount, currency, categoryName) =>
+          void handleAmountSubmit(amount, currency, categoryName)
+        }
         onCancel={() => setAmountMode(null)}
       />
-
-      <Modal
-        open={pendingOtros !== null}
-        title="Nombre del gasto"
-        onClose={() => {
-          setPendingOtros(null)
-          setOtrosName('')
-        }}
-      >
-        <p className="mb-3 text-sm text-[var(--muted)]">Una o dos palabras</p>
-        <input
-          value={otrosName}
-          onChange={(event) => setOtrosName(event.target.value)}
-          className="mb-4 min-h-12 w-full rounded-xl border border-[var(--border)] px-4 text-lg outline-none focus:border-[var(--blue)]"
-          aria-label="Nombre del gasto"
-          autoFocus
-        />
-        <div className="flex gap-3">
-          <Button
-            variant="secondary"
-            className="flex-1"
-            onClick={() => {
-              setPendingOtros(null)
-              setOtrosName('')
-            }}
-          >
-            Cancelar
-          </Button>
-          <Button className="flex-1" onClick={() => void confirmOtrosGrande()}>
-            Guardar
-          </Button>
-        </div>
-      </Modal>
 
       <Modal
         open={deleteTarget !== null}

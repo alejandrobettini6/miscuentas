@@ -1,8 +1,4 @@
-import {
-  CATEGORY_LABELS,
-  FIXED_CATEGORIES,
-  OTROS_GRANDES_THRESHOLD_USD,
-} from '@/constants/categories'
+import { CATEGORY_LABELS, FIXED_CATEGORIES } from '@/constants/categories'
 import { Category } from '@/types/enums'
 import type { AccountType } from '@/types/enums'
 import type { CategoryRow, Expense } from '@/types/models'
@@ -48,10 +44,6 @@ export class CategoryAggregator {
 
     grandesRows.sort((a, b) => b.totalUsd - a.totalUsd)
     return [...rows, ...grandesRows]
-  }
-
-  static requiresOtrosGrandeName(usdAmount: number): boolean {
-    return usdAmount > OTROS_GRANDES_THRESHOLD_USD
   }
 }
 
