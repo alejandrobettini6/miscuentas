@@ -10,6 +10,8 @@ export interface Settings {
   usdWhite: number
   usdCash: number
   monthlyLimit: number
+  /** Categorías personalizadas (OTHER + nombre); viven en settings, no en el enum. */
+  customCategories: string[]
   updatedAt: string
 }
 
@@ -71,4 +73,5 @@ export interface UpdateSettingsInput {
   usdWhite?: number
   usdCash?: number
   monthlyLimit?: number
+  customCategories?: string[]
 }

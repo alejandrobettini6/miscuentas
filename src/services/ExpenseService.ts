@@ -34,15 +34,15 @@ export class ExpenseService {
 
     let description: string | null = input.description ?? null
 
-    if (input.category === Category.OTHER) {
-      if (description && description.trim()) {
-        if (!isValidCustomCategoryName(description)) {
-          throw new Error('Nombre de categoría inválido (máx. 40 caracteres)')
-        }
-        description = normalizeCustomCategoryName(description)
-      } else {
-        description = null
+    if (description && description.trim()) {
+      if (!isValidCustomCategoryName(description)) {
+        throw new Error(
+          input.category === Category.OTHER
+            ? 'Nombre de categoría inválido (máx. 40 caracteres)'
+            : 'Detalle inválido (máx. 40 caracteres)',
+        )
       }
+      description = normalizeCustomCategoryName(description)
     } else {
       description = null
     }

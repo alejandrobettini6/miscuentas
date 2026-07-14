@@ -8,16 +8,34 @@ function settingsKey(userId: string): string {
   return `${STORAGE_KEYS.SETTINGS}:${userId}`
 }
 
+function normalizeSettings(raw: Settings, userId: string): Settings {
+  return {
+    userId: raw.userId ?? userId,
+    usdWhite: raw.usdWhite,
+    usdCash: raw.usdCash,
+    monthlyLimit: raw.monthlyLimit,
+    customCategories: Array.isArray(raw.customCategories) ? raw.customCategories : [],
+    updatedAt: raw.updatedAt,
+  }
+}
+
 export class LocalSettingsRepository implements SettingsRepository {
   async get(userId: string): Promise<Settings> {
     const existing = readJson<Settings | null>(settingsKey(userId), null)
-    if (existing) return existing
+    if (existing) {
+      const normalized = normalizeSettings(existing, userId)
+      if (!Array.isArray(existing.customCategories)) {
+        writeJson(settingsKey(userId), normalized)
+      }
+      return normalized
+    }
 
     const defaults: Settings = {
       userId,
       usdWhite: DEFAULT_SETTINGS.usdWhite,
       usdCash: DEFAULT_SETTINGS.usdCash,
       monthlyLimit: DEFAULT_SETTINGS.monthlyLimit,
+      customCategories: [...DEFAULT_SETTINGS.customCategories],
       updatedAt: new Date().toISOString(),
     }
     writeJson(settingsKey(userId), defaults)
@@ -31,6 +49,7 @@ export class LocalSettingsRepository implements SettingsRepository {
       usdWhite: input.usdWhite ?? current.usdWhite,
       usdCash: input.usdCash ?? current.usdCash,
       monthlyLimit: input.monthlyLimit ?? current.monthlyLimit,
+      customCategories: input.customCategories ?? current.customCategories,
       updatedAt: new Date().toISOString(),
     }
     writeJson(settingsKey(userId), next)

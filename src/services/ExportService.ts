@@ -83,8 +83,12 @@ export class ExportService {
         usdWhite: settings.usdWhite,
         usdCash: settings.usdCash,
         monthlyLimit: settings.monthlyLimit,
+        customCategories: settings.customCategories,
       },
-      categories: FIXED_CATEGORIES.map((c) => CATEGORY_LABELS[c]),
+      categories: [
+        ...FIXED_CATEGORIES.map((c) => CATEGORY_LABELS[c]),
+        ...settings.customCategories,
+      ],
       expenses: expenses.map((e) => ({
         id: e.id,
         accountType: e.accountType,

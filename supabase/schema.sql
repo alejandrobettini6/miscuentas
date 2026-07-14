@@ -26,8 +26,13 @@ create table public.settings (
   usd_white numeric(18, 6) not null default 1 check (usd_white > 0),
   usd_cash numeric(18, 6) not null default 1 check (usd_cash > 0),
   monthly_limit numeric(18, 2) not null default 1500 check (monthly_limit >= 0),
+  custom_categories text[] not null default '{}',
   updated_at timestamptz not null default now()
 );
+
+-- Si la tabla settings ya existía sin custom_categories:
+-- alter table public.settings
+--   add column if not exists custom_categories text[] not null default '{}';
 
 -- Expenses (movimientos individuales; los acumulados se calculan en el cliente)
 create table public.expenses (

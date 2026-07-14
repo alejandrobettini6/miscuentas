@@ -1,4 +1,5 @@
-import { BudgetColor } from '@/types/enums'
+import { ACCOUNT_LABELS } from '@/constants/categories'
+import { AccountType, BudgetColor } from '@/types/enums'
 import type { MonthlySummary } from '@/types/models'
 import { formatPercent, formatUsdLabel } from '@/utils/formatters'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -42,6 +43,21 @@ export function MonthlySummaryCard({
           {formatUsdLabel(summary.totalSpent)}
         </span>
       </p>
+
+      <div className="mt-2 space-y-1 text-sm text-[var(--muted)]">
+        <p>
+          {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
+          <span className="font-semibold text-[var(--text)]">
+            {formatUsdLabel(summary.totalWhite)}
+          </span>
+        </p>
+        <p>
+          {ACCOUNT_LABELS[AccountType.CASH]}{' '}
+          <span className="font-semibold text-[var(--text)]">
+            {formatUsdLabel(summary.totalCash)}
+          </span>
+        </p>
+      </div>
     </section>
   )
 }

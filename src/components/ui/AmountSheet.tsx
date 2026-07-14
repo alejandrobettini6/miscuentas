@@ -10,7 +10,13 @@ interface AmountSheetProps {
   initialAmount?: string
   initialCurrency?: Currency
   showCategoryName?: boolean
-  onSubmit: (amount: string, currency: Currency, categoryName?: string) => void
+  /** Detalle opcional dentro de una categoría fija (no crea fila nueva). */
+  showDetail?: boolean
+  onSubmit: (
+    amount: string,
+    currency: Currency,
+    categoryNameOrDetail?: string,
+  ) => void
   onCancel: () => void
 }
 
@@ -20,6 +26,7 @@ export function AmountSheet({
   initialAmount = '',
   initialCurrency = Currency.USD,
   showCategoryName = false,
+  showDetail = false,
   onSubmit,
   onCancel,
 }: AmountSheetProps) {
@@ -28,6 +35,7 @@ export function AmountSheet({
   const [amount, setAmount] = useState(initialAmount)
   const [currency, setCurrency] = useState(initialCurrency)
   const [categoryName, setCategoryName] = useState('')
+  const [detail, setDetail] = useState('')
   const [amountError, setAmountError] = useState(false)
   const submittedRef = useRef(false)
   const cancelledRef = useRef(false)
@@ -46,9 +54,10 @@ export function AmountSheet({
     )
     setCurrency(initialCurrency)
     setCategoryName('')
+    setDetail('')
     const timer = window.setTimeout(() => inputRef.current?.focus(), 50)
     return () => window.clearTimeout(timer)
-  }, [open, initialAmount, initialCurrency, showCategoryName])
+  }, [open, initialAmount, initialCurrency, showCategoryName, showDetail])
 
   if (!open) return null
 
@@ -70,11 +79,12 @@ export function AmountSheet({
 
     setAmountError(false)
     submittedRef.current = true
-    onSubmit(
-      amount,
-      currency,
-      showCategoryName ? categoryName : undefined,
-    )
+    const extra = showCategoryName
+      ? categoryName
+      : showDetail
+        ? detail
+        : undefined
+    onSubmit(amount, currency, extra)
   }
 
   const scheduleCommit = () => {
@@ -179,6 +189,31 @@ export function AmountSheet({
               maxLength={40}
               className="min-h-12 w-full rounded-xl border border-[var(--border)] px-4 text-base outline-none focus:border-[var(--blue)]"
               aria-label="Nombre de categoría (opcional)"
+            />
+          </label>
+        )}
+
+        {showDetail && !showCategoryName && (
+          <label className="mb-4 block" htmlFor="detail-input">
+            <span className="mb-2 block text-sm font-medium text-[var(--text)]">
+              Detalle (opcional)
+            </span>
+            <input
+              id="detail-input"
+              type="text"
+              value={detail}
+              onChange={(event) => setDetail(event.target.value)}
+              onBlur={scheduleCommit}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  commit()
+                }
+              }}
+              placeholder="ej. Carnicería"
+              maxLength={40}
+              className="min-h-12 w-full rounded-xl border border-[var(--border)] px-4 text-base outline-none focus:border-[var(--blue)]"
+              aria-label="Detalle (opcional)"
             />
           </label>
         )}

@@ -8,6 +8,7 @@ interface SettingsRow {
   usd_white: number
   usd_cash: number
   monthly_limit: number
+  custom_categories?: string[] | null
   updated_at: string
 }
 
@@ -17,6 +18,7 @@ function mapRow(row: SettingsRow): Settings {
     usdWhite: Number(row.usd_white),
     usdCash: Number(row.usd_cash),
     monthlyLimit: Number(row.monthly_limit),
+    customCategories: Array.isArray(row.custom_categories) ? row.custom_categories : [],
     updatedAt: row.updated_at,
   }
 }
@@ -39,6 +41,7 @@ export class SupabaseSettingsRepository implements SettingsRepository {
       usd_white: DEFAULT_SETTINGS.usdWhite,
       usd_cash: DEFAULT_SETTINGS.usdCash,
       monthly_limit: DEFAULT_SETTINGS.monthlyLimit,
+      custom_categories: DEFAULT_SETTINGS.customCategories,
       updated_at: new Date().toISOString(),
     }
 
@@ -59,6 +62,7 @@ export class SupabaseSettingsRepository implements SettingsRepository {
       usd_white: input.usdWhite ?? current.usdWhite,
       usd_cash: input.usdCash ?? current.usdCash,
       monthly_limit: input.monthlyLimit ?? current.monthlyLimit,
+      custom_categories: input.customCategories ?? current.customCategories,
       updated_at: new Date().toISOString(),
     }
 
