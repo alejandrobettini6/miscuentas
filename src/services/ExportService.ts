@@ -1,5 +1,5 @@
 import { ACCOUNT_LABELS, CATEGORY_LABELS, FIXED_CATEGORIES } from '@/constants/categories'
-import { AccountType, Category } from '@/types/enums'
+import { AccountType, Category, Currency } from '@/types/enums'
 import type { Expense, Settings } from '@/types/models'
 import { formatDateParts } from '@/utils/date'
 import { formatUsd } from '@/utils/formatters'
@@ -19,9 +19,9 @@ export class ExportService {
       lines.push(
         [
           cash ? escapeCsv(cash.label) : '',
-          cash ? formatUsd(cash.totalUsd) : '',
+          cash ? escapeCsv(formatUsd(cash.totalUsd)) : '',
           white ? escapeCsv(white.label) : '',
-          white ? formatUsd(white.totalUsd) : '',
+          white ? escapeCsv(formatUsd(white.totalUsd)) : '',
         ].join(','),
       )
     }
@@ -53,6 +53,10 @@ export class ExportService {
         expense.category === Category.OTHER && expense.description
           ? expense.description
           : CATEGORY_LABELS[expense.category]
+      const cotizacion =
+        expense.originalCurrency === Currency.USD
+          ? ''
+          : escapeCsv(formatUsd(expense.exchangeRate))
 
       return [
         expense.createdAt,
@@ -62,9 +66,9 @@ export class ExportService {
         escapeCsv(categoryLabel),
         escapeCsv(expense.description ?? ''),
         expense.originalCurrency,
-        formatUsd(expense.originalAmount),
-        formatUsd(expense.exchangeRate),
-        formatUsd(expense.usdAmount),
+        escapeCsv(formatUsd(expense.originalAmount)),
+        cotizacion,
+        escapeCsv(formatUsd(expense.usdAmount)),
       ].join(',')
     })
 

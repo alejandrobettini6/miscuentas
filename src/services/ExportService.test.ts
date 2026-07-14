@@ -5,38 +5,121 @@ import { ExportService } from './ExportService'
 
 const settings: Settings = {
   userId: 'u',
-  usdWhite: 1,
-  usdCash: 1,
+  usdWhite: 1554,
+  usdCash: 1515,
   monthlyLimit: 1500,
   updatedAt: new Date().toISOString(),
 }
 
-const expenses: Expense[] = [
-  {
-    id: '1',
-    userId: 'u',
-    accountType: AccountType.WHITE,
-    category: Category.SUPER,
-    description: null,
-    originalCurrency: Currency.USD,
-    originalAmount: 10,
-    exchangeRate: 1,
-    usdAmount: 10,
-    createdAt: '2026-01-01T12:00:00.000Z',
-    updatedAt: '2026-01-01T12:00:00.000Z',
-  },
-]
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = []
+  let current = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"'
+        i++
+      } else if (ch === '"') {
+        inQuotes = false
+      } else {
+        current += ch
+      }
+    } else if (ch === '"') {
+      inQuotes = true
+    } else if (ch === ',') {
+      fields.push(current)
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  fields.push(current)
+  return fields
+}
+
+const whiteArs: Expense = {
+  id: '1',
+  userId: 'u',
+  accountType: AccountType.WHITE,
+  category: Category.SUPER,
+  description: null,
+  originalCurrency: Currency.ARS,
+  originalAmount: 24500,
+  exchangeRate: 1554,
+  usdAmount: 15.77,
+  createdAt: '2026-07-04T18:44:04.084Z',
+  updatedAt: '2026-07-04T18:44:04.084Z',
+}
+
+const cashUsd: Expense = {
+  id: '2',
+  userId: 'u',
+  accountType: AccountType.CASH,
+  category: Category.SALIDAS,
+  description: null,
+  originalCurrency: Currency.USD,
+  originalAmount: 10.2,
+  exchangeRate: 1,
+  usdAmount: 10.2,
+  createdAt: '2026-07-04T18:44:51.58Z',
+  updatedAt: '2026-07-04T18:44:51.58Z',
+}
 
 describe('ExportService', () => {
   it('genera CSV con cuatro columnas', () => {
-    const csv = ExportService.toCsv(expenses)
+    const csv = ExportService.toCsv([whiteArs])
     const lines = csv.split('\n')
     expect(lines[0]).toBe('Categoría Barrani,Monto Barrani,Categoría Blanco,Monto Blanco')
-    expect(lines.some((line) => line.includes('Super') && line.includes('10'))).toBe(true)
+    expect(lines.some((line) => line.includes('Super') && line.includes('15,77'))).toBe(true)
+  })
+
+  it('mantiene montos decimales en una sola columna y categorías como labels', () => {
+    const csv = ExportService.toCsv([whiteArs, cashUsd])
+    const dataRows = csv.split('\n').slice(1)
+
+    for (const row of dataRows) {
+      const cols = parseCsvLine(row)
+      expect(cols).toHaveLength(4)
+      if (cols[0]) expect(Number.isNaN(Number(cols[0].replace(',', '.')))).toBe(true)
+      if (cols[2]) expect(Number.isNaN(Number(cols[2].replace(',', '.')))).toBe(true)
+    }
+
+    const superRow = dataRows.find((r) => parseCsvLine(r)[2] === 'Super')
+    expect(superRow).toBeDefined()
+    const superCols = parseCsvLine(superRow!)
+    expect(superCols[3]).toBe('15,77')
+
+    const salidasRow = dataRows.find((r) => parseCsvLine(r)[0] === 'Salidas')
+    expect(salidasRow).toBeDefined()
+    const salidasCols = parseCsvLine(salidasRow!)
+    expect(salidasCols[1]).toBe('10,20')
+  })
+
+  it('en logs USD deja cotización vacía y no parte decimales', () => {
+    const logs = ExportService.toLogs([cashUsd])
+    const cols = parseCsvLine(logs.split('\n')[1])
+    expect(cols).toHaveLength(10)
+    expect(cols[6]).toBe('USD')
+    expect(cols[7]).toBe('10,20')
+    expect(cols[8]).toBe('')
+    expect(cols[9]).toBe('10,20')
+  })
+
+  it('en logs ARS exporta cotización y 10 columnas sin corrimiento', () => {
+    const logs = ExportService.toLogs([whiteArs])
+    const cols = parseCsvLine(logs.split('\n')[1])
+    expect(cols).toHaveLength(10)
+    expect(cols[4]).toBe('Super')
+    expect(cols[6]).toBe('ARS')
+    expect(cols[7]).toBe('24.500')
+    expect(cols[8]).toBe('1.554')
+    expect(cols[9]).toBe('15,77')
   })
 
   it('exporta JSON restaurable sin auth', () => {
-    const json = JSON.parse(ExportService.toJson(expenses, settings))
+    const json = JSON.parse(ExportService.toJson([whiteArs], settings))
     expect(json.settings.monthlyLimit).toBe(1500)
     expect(json.expenses).toHaveLength(1)
     expect(json.expenses[0].id).toBe('1')
