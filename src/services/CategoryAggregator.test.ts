@@ -111,4 +111,29 @@ describe('CategoryAggregator', () => {
     const superRow = white.find((r) => r.label === 'Super')
     expect(superRow?.totalUsd).toBe(10)
   })
+
+  it('muestra categorías personalizadas de settings aunque estén en cero', () => {
+    const rows = CategoryAggregator.buildRows([], AccountType.WHITE, ['Mascotas'])
+    const mascotas = rows.find((r) => r.label === 'Mascotas' && r.isOtrosGrande)
+    expect(mascotas?.totalUsd).toBe(0)
+    expect(mascotas?.lastExpense).toBeNull()
+  })
+
+  it('une gastos con categorías de settings sin duplicar', () => {
+    const expenses = [
+      expense({
+        category: Category.OTHER,
+        description: 'Mascotas',
+        usdAmount: 40,
+      }),
+    ]
+    const rows = CategoryAggregator.buildRows(expenses, AccountType.WHITE, [
+      'Mascotas',
+      'Hobby',
+    ])
+    const named = rows.filter((r) => r.isOtrosGrande)
+    expect(named).toHaveLength(2)
+    expect(named.find((r) => r.label === 'Mascotas')?.totalUsd).toBe(40)
+    expect(named.find((r) => r.label === 'Hobby')?.totalUsd).toBe(0)
+  })
 })

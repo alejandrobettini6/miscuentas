@@ -10,6 +10,7 @@ export function useSummary(expenses: Expense[], accountType: AccountType) {
 
   return useMemo(() => {
     const monthlyLimit = settings?.monthlyLimit ?? 0
+    const customCategories = settings?.customCategories ?? []
     const summary = SummaryCalculator.calculate(expenses, monthlyLimit)
     const color = SummaryCalculator.resolveBudgetColor(
       summary.remainingPercent,
@@ -19,8 +20,12 @@ export function useSummary(expenses: Expense[], accountType: AccountType) {
       summary.available,
       monthlyLimit,
     )
-    const rows = CategoryAggregator.buildRows(expenses, accountType)
+    const rows = CategoryAggregator.buildRows(
+      expenses,
+      accountType,
+      customCategories,
+    )
 
     return { summary, color, progress, rows }
-  }, [expenses, settings?.monthlyLimit, accountType])
+  }, [expenses, settings?.monthlyLimit, settings?.customCategories, accountType])
 }

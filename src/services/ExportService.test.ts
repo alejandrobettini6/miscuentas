@@ -8,6 +8,7 @@ const settings: Settings = {
   usdWhite: 1554,
   usdCash: 1515,
   monthlyLimit: 1500,
+  customCategories: [],
   updatedAt: new Date().toISOString(),
 }
 

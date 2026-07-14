@@ -42,4 +42,5 @@ export const DEFAULT_SETTINGS = {
   usdWhite: 1,
   usdCash: 1,
   monthlyLimit: 1500,
+  customCategories: [] as string[],
 } as const

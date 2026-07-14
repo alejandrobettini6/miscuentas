@@ -1,5 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
+import { AddCategoryRow } from '@/components/expenses/AddCategoryRow'
+import { CategoryDetailsModal } from '@/components/expenses/CategoryDetailsModal'
 import { CategoryRow } from '@/components/expenses/CategoryRow'
 import { Header } from '@/components/layout/Header'
 import { SideMenu } from '@/components/layout/SideMenu'
@@ -13,6 +15,8 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useSummary } from '@/hooks/useSummary'
 import { useSettingsContext } from '@/contexts/SettingsContext'
+import { CATEGORY_LABELS } from '@/constants/categories'
+import { CategoryAggregator } from '@/services/CategoryAggregator'
 import { AccountType, Category, Currency } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel, Expense } from '@/types/models'
 import { getErrorMessage } from '@/utils/errors'
@@ -28,7 +32,7 @@ type AmountMode =
   | null
 
 export function HomePage() {
-  const { settings } = useSettingsContext()
+  const { settings, updateSettings } = useSettingsContext()
   const {
     expenses,
     isLoading,
@@ -44,6 +48,9 @@ export function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [amountMode, setAmountMode] = useState<AmountMode>(null)
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null)
+  const [removeCategoryTarget, setRemoveCategoryTarget] =
+    useState<CategoryRowModel | null>(null)
+  const [detailsRow, setDetailsRow] = useState<CategoryRowModel | null>(null)
   const [undoDeadline, setUndoDeadline] = useState<number | null>(null)
   const [undoExpenseId, setUndoExpenseId] = useState<string | null>(null)
   const [busyRowKey, setBusyRowKey] = useState<string | null>(null)
@@ -55,6 +62,16 @@ export function HomePage() {
 
   const locked = isMutating || busyRowKey !== null
 
+  const detailsItems = useMemo(() => {
+    if (!detailsRow) return []
+    return CategoryAggregator.expensesForRow(expenses, accountType, detailsRow)
+  }, [detailsRow, expenses, accountType])
+
+  const detailsAccountTotals = useMemo(() => {
+    if (!detailsRow) return { totalWhite: 0, totalCash: 0 }
+    return CategoryAggregator.accountTotalsForRow(expenses, detailsRow)
+  }, [detailsRow, expenses])
+
   const clearUndo = useCallback(() => {
     setUndoDeadline(null)
     setUndoExpenseId(null)
@@ -63,7 +80,7 @@ export function HomePage() {
   const handleAmountSubmit = async (
     rawAmount: string,
     currency: Currency,
-    categoryName?: string,
+    categoryNameOrDetail?: string,
   ) => {
     if (!amountMode || !settings) {
       setAmountMode(null)
@@ -94,7 +111,7 @@ export function HomePage() {
       }
 
       if (mode.row.category === Category.OTHER && !mode.row.isOtrosGrande) {
-        const trimmedName = categoryName?.trim() ?? ''
+        const trimmedName = categoryNameOrDetail?.trim() ?? ''
         let description: string | null = null
         if (trimmedName) {
           if (!isValidCustomCategoryName(trimmedName)) {
@@ -117,10 +134,35 @@ export function HomePage() {
         return
       }
 
+      if (mode.row.isOtrosGrande) {
+        const expense = await createExpense({
+          accountType,
+          category: Category.OTHER,
+          description: mode.row.description,
+          originalAmount: amount,
+          originalCurrency: currency,
+        })
+        toast.success('Movimiento registrado')
+        setUndoExpenseId(expense.id)
+        setUndoDeadline(createUndoDeadline())
+        return
+      }
+
+      // Categoría fija: detalle opcional en description
+      let detail: string | null = null
+      const trimmedDetail = categoryNameOrDetail?.trim() ?? ''
+      if (trimmedDetail) {
+        if (!isValidCustomCategoryName(trimmedDetail)) {
+          toast.error('Detalle inválido (máx. 40 caracteres)')
+          return
+        }
+        detail = normalizeCustomCategoryName(trimmedDetail)
+      }
+
       const expense = await createExpense({
         accountType,
         category: mode.row.category,
-        description: mode.row.isOtrosGrande ? mode.row.description : null,
+        description: detail,
         originalAmount: amount,
         originalCurrency: currency,
       })
@@ -162,9 +204,90 @@ export function HomePage() {
     }
   }
 
+  const handleAddCategory = async (rawName: string) => {
+    if (!settings) throw new Error('Sin configuración')
+
+    if (!isValidCustomCategoryName(rawName)) {
+      throw new Error('Nombre inválido (máx. 40 caracteres)')
+    }
+    const name = normalizeCustomCategoryName(rawName)
+    const lower = name.toLowerCase()
+
+    const fixedLabels = Object.values(CATEGORY_LABELS).map((l) => l.toLowerCase())
+    if (fixedLabels.includes(lower)) {
+      throw new Error('Esa categoría ya existe')
+    }
+
+    const existingCustom = settings.customCategories.map((c) => c.toLowerCase())
+    if (existingCustom.includes(lower)) {
+      throw new Error('Esa categoría ya existe')
+    }
+
+    const fromExpenses = expenses.some(
+      (e) =>
+        e.category === Category.OTHER &&
+        e.description?.toLowerCase() === lower,
+    )
+    if (fromExpenses) {
+      throw new Error('Esa categoría ya existe')
+    }
+
+    await updateSettings({
+      customCategories: [...settings.customCategories, name],
+    })
+    toast.success('Categoría agregada')
+  }
+
+  const customExpensesForRow = (row: CategoryRowModel) =>
+    expenses.filter(
+      (e) =>
+        e.category === Category.OTHER &&
+        Boolean(e.description) &&
+        e.description!.toLowerCase() === (row.description ?? '').toLowerCase(),
+    )
+
+  const canRemoveCustomCategory = (row: CategoryRowModel) =>
+    row.isOtrosGrande && customExpensesForRow(row).length === 0
+
+  const handleRemoveCategory = async () => {
+    if (!removeCategoryTarget || !settings) return
+    const row = removeCategoryTarget
+    const key = rowKey(row)
+    setRemoveCategoryTarget(null)
+    setDetailsRow(null)
+    setBusyRowKey(key)
+
+    try {
+      const related = customExpensesForRow(row)
+      for (const expense of related) {
+        await removeExpense(expense.id)
+      }
+
+      const lower = (row.description ?? '').toLowerCase()
+      const nextCustom = settings.customCategories.filter(
+        (c) => c.toLowerCase() !== lower,
+      )
+      if (nextCustom.length !== settings.customCategories.length) {
+        await updateSettings({ customCategories: nextCustom })
+      }
+
+      toast.success('Categoría eliminada')
+      clearUndo()
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'No se pudo eliminar la categoría'))
+    } finally {
+      setBusyRowKey(null)
+    }
+  }
+
   const showCategoryName =
     amountMode?.type === 'create' &&
     amountMode.row.category === Category.OTHER &&
+    !amountMode.row.isOtrosGrande
+
+  const showDetail =
+    amountMode?.type === 'create' &&
+    amountMode.row.category !== Category.OTHER &&
     !amountMode.row.isOtrosGrande
 
   return (
@@ -192,26 +315,32 @@ export function HomePage() {
         {isLoading ? (
           <p className="py-8 text-center text-[var(--muted)]">Cargando…</p>
         ) : (
-          rows.map((row) => (
-            <CategoryRow
-              key={rowKey(row)}
-              row={row}
-              disabled={locked}
-              onRegister={() => setAmountMode({ type: 'create', row })}
-              onEdit={() => {
-                if (!row.lastExpense) return
-                setAmountMode({
-                  type: 'edit',
-                  row,
-                  expense: row.lastExpense,
-                })
-              }}
-              onDelete={() => {
-                if (!row.lastExpense) return
-                setDeleteTarget(row.lastExpense)
-              }}
-            />
-          ))
+          <>
+            {rows.map((row) => (
+              <CategoryRow
+                key={rowKey(row)}
+                row={row}
+                disabled={locked}
+                canRemoveCategory={canRemoveCustomCategory(row)}
+                onRegister={() => setAmountMode({ type: 'create', row })}
+                onEdit={() => {
+                  if (!row.lastExpense) return
+                  setAmountMode({
+                    type: 'edit',
+                    row,
+                    expense: row.lastExpense,
+                  })
+                }}
+                onDelete={() => {
+                  if (!row.lastExpense) return
+                  setDeleteTarget(row.lastExpense)
+                }}
+                onViewDetails={() => setDetailsRow(row)}
+                onRemoveCategory={() => setRemoveCategoryTarget(row)}
+              />
+            ))}
+            <AddCategoryRow disabled={locked} onAdd={handleAddCategory} />
+          </>
         )}
       </section>
 
@@ -235,6 +364,7 @@ export function HomePage() {
             : Currency.USD
         }
         showCategoryName={showCategoryName}
+        showDetail={showDetail}
         onSubmit={(amount, currency, categoryName) =>
           void handleAmountSubmit(amount, currency, categoryName)
         }
@@ -262,6 +392,54 @@ export function HomePage() {
           </Button>
         </div>
       </Modal>
+
+      <Modal
+        open={removeCategoryTarget !== null}
+        title="Eliminar categoría"
+        onClose={() => setRemoveCategoryTarget(null)}
+      >
+        <p className="mb-4 text-[var(--muted)]">
+          {removeCategoryTarget &&
+          customExpensesForRow(removeCategoryTarget).length > 0
+            ? `¿Eliminar “${removeCategoryTarget.label}” y todos sus movimientos?`
+            : `¿Eliminar la categoría “${removeCategoryTarget?.label ?? ''}”?`}
+        </p>
+        <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            className="flex-1"
+            onClick={() => setRemoveCategoryTarget(null)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="danger"
+            className="flex-1"
+            onClick={() => void handleRemoveCategory()}
+          >
+            Eliminar
+          </Button>
+        </div>
+      </Modal>
+
+      <CategoryDetailsModal
+        open={detailsRow !== null}
+        row={detailsRow}
+        accountType={accountType}
+        items={detailsItems}
+        totalWhite={detailsAccountTotals.totalWhite}
+        totalCash={detailsAccountTotals.totalCash}
+        onClose={() => setDetailsRow(null)}
+        onRemoveCategory={
+          detailsRow?.isOtrosGrande
+            ? () => {
+                const row = detailsRow
+                setDetailsRow(null)
+                setRemoveCategoryTarget(row)
+              }
+            : undefined
+        }
+      />
 
       <SideMenu
         open={menuOpen}

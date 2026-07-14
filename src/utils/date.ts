@@ -32,3 +32,18 @@ export function formatDateParts(iso: string): { date: string; time: string } {
   ].join(':')
   return { date, time }
 }
+
+/** Vista de detalles: dd/mm/yy hh:mm */
+export function formatDetailTimestamp(iso: string): string {
+  const d = new Date(iso)
+  const date = [
+    String(d.getDate()).padStart(2, '0'),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getFullYear()).slice(-2),
+  ].join('/')
+  const time = [
+    String(d.getHours()).padStart(2, '0'),
+    String(d.getMinutes()).padStart(2, '0'),
+  ].join(':')
+  return `${date} ${time}`
+}

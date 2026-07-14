@@ -8,6 +8,7 @@ const settings: Settings = {
   usdWhite: 1000,
   usdCash: 1200,
   monthlyLimit: 1500,
+  customCategories: [],
   updatedAt: new Date().toISOString(),
 }
 
@@ -87,6 +88,52 @@ describe('ExpenseService', () => {
         settings,
       ),
     ).toThrow()
+  })
+
+  it('acepta detalle opcional en categorías fijas', () => {
+    const expense = ExpenseService.buildExpense(
+      'u',
+      {
+        accountType: AccountType.WHITE,
+        category: Category.SUPER,
+        description: '  Carniceria  ',
+        originalAmount: 50,
+        originalCurrency: Currency.USD,
+      },
+      settings,
+    )
+    expect(expense.description).toBe('Carniceria')
+    expect(expense.category).toBe(Category.SUPER)
+  })
+
+  it('deja description null en categoría fija sin detalle', () => {
+    const expense = ExpenseService.buildExpense(
+      'u',
+      {
+        accountType: AccountType.WHITE,
+        category: Category.DELIVERY,
+        originalAmount: 20,
+        originalCurrency: Currency.USD,
+      },
+      settings,
+    )
+    expect(expense.description).toBeNull()
+  })
+
+  it('rechaza detalle demasiado largo en categoría fija', () => {
+    expect(() =>
+      ExpenseService.buildExpense(
+        'u',
+        {
+          accountType: AccountType.WHITE,
+          category: Category.SUPER,
+          description: 'x'.repeat(41),
+          originalAmount: 10,
+          originalCurrency: Currency.USD,
+        },
+        settings,
+      ),
+    ).toThrow(/Detalle inválido/)
   })
 
   it('persiste Devoluciones con montos negativos', () => {
