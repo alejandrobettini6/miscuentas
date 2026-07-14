@@ -143,7 +143,7 @@ export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProp
 
           <Section title="Datos">
             <MenuButton label="Exportar CSV" onClick={exportCsv} />
-            <MenuButton label="Exportar Logs" onClick={exportLogs} />
+            <MenuButton label="Exportar movimientos" onClick={exportLogs} />
             <MenuButton label="Exportar JSON" onClick={exportJson} />
           </Section>
 

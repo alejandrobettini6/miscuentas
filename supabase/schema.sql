@@ -15,6 +15,8 @@ create type public.category_type as enum (
   'PELO',
   'GYM',
   'LIMPIEZA',
+  'TAXES',
+  'REFUNDS',
   'OTHER'
 );
 
@@ -35,7 +37,7 @@ create table public.expenses (
   category public.category_type not null,
   description text null,
   original_currency public.currency_type not null,
-  original_amount numeric(18, 2) not null check (original_amount > 0),
+  original_amount numeric(18, 2) not null check (original_amount <> 0),
   exchange_rate numeric(18, 6) not null check (exchange_rate > 0),
   usd_amount numeric(18, 2) not null,
   created_at timestamptz not null default now(),

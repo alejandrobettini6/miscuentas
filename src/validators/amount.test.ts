@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   formatAmountFromNumber,
   formatAmountInput,
+  isValidCustomCategoryName,
+  normalizeCustomCategoryName,
   parseAmountInput,
 } from './amount'
 
@@ -44,5 +46,16 @@ describe('formatAmountFromNumber', () => {
     expect(formatAmountFromNumber(12500)).toBe('12.500')
     expect(formatAmountFromNumber(1250.5)).toBe('1.250,50')
     expect(formatAmountFromNumber(100)).toBe('100')
+  })
+})
+
+describe('custom category name', () => {
+  it('valida y normaliza nombres opcionales', () => {
+    expect(isValidCustomCategoryName('')).toBe(false)
+    expect(isValidCustomCategoryName('   ')).toBe(false)
+    expect(isValidCustomCategoryName('Taxi')).toBe(true)
+    expect(isValidCustomCategoryName('Impuesto pais')).toBe(true)
+    expect(isValidCustomCategoryName('x'.repeat(41))).toBe(false)
+    expect(normalizeCustomCategoryName('  A   B  ')).toBe('A B')
   })
 })

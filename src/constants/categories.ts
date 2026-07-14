@@ -11,6 +11,8 @@ export const FIXED_CATEGORIES: Category[] = [
   Category.PELO,
   Category.GYM,
   Category.LIMPIEZA,
+  Category.TAXES,
+  Category.REFUNDS,
 ]
 
 export const CATEGORY_LABELS: Record<Category, string> = {
@@ -24,6 +26,8 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   [Category.PELO]: 'Pelo',
   [Category.GYM]: 'Gym',
   [Category.LIMPIEZA]: 'Limpieza',
+  [Category.TAXES]: 'Impuestos',
+  [Category.REFUNDS]: 'Devoluciones',
   [Category.OTHER]: 'Otros',
 }
 
@@ -31,9 +35,6 @@ export const ACCOUNT_LABELS: Record<AccountType, string> = {
   [AccountType.WHITE]: 'Blanco',
   [AccountType.CASH]: 'Barrani',
 }
-
-/** Umbral inclusivo: <= 150 va a Otros; > 150 pide nombre (Otros Grandes) */
-export const OTROS_GRANDES_THRESHOLD_USD = 150
 
 export const UNDO_WINDOW_MS = 15_000
 

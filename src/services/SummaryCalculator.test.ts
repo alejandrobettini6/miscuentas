@@ -38,4 +38,18 @@ describe('SummaryCalculator', () => {
     expect(SummaryCalculator.resolveBudgetColor(5, 100)).toBe(BudgetColor.ORANGE)
     expect(SummaryCalculator.resolveBudgetColor(0, -1)).toBe(BudgetColor.RED)
   })
+
+  it('las devoluciones reducen el gasto y aumentan el disponible', () => {
+    const expenses = [
+      expense({ accountType: AccountType.WHITE, usdAmount: 100 }),
+      expense({
+        accountType: AccountType.WHITE,
+        category: Category.REFUNDS,
+        usdAmount: -30,
+      }),
+    ]
+    const summary = SummaryCalculator.calculate(expenses, 200)
+    expect(summary.totalSpent).toBe(70)
+    expect(summary.available).toBe(130)
+  })
 })

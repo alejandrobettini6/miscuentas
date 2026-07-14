@@ -26,6 +26,8 @@ export enum Category {
   PELO = 'PELO',
   GYM = 'GYM',
   LIMPIEZA = 'LIMPIEZA',
+  TAXES = 'TAXES',
+  REFUNDS = 'REFUNDS',
   OTHER = 'OTHER',
 }
 

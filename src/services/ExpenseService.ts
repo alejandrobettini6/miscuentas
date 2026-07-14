@@ -1,8 +1,11 @@
 import { AccountType, Category, type Currency } from '@/types/enums'
 import type { CreateExpenseInput, Expense, Settings, UpdateExpenseInput } from '@/types/models'
 import { createId } from '@/utils/id'
-import { isValidAmount, isValidOtrosGrandeName, normalizeOtrosGrandeName } from '@/validators/amount'
-import { CategoryAggregator } from './CategoryAggregator'
+import {
+  isValidAmount,
+  isValidCustomCategoryName,
+  normalizeCustomCategoryName,
+} from '@/validators/amount'
 import { CurrencyConverter } from './CurrencyConverter'
 
 export class ExpenseService {
@@ -17,20 +20,26 @@ export class ExpenseService {
     }
 
     const exchangeRate = this.resolveRate(input.accountType, input.originalCurrency, settings)
-    const usdAmount = CurrencyConverter.convertToUsd(
+    let usdAmount = CurrencyConverter.convertToUsd(
       input.originalAmount,
       input.originalCurrency,
       exchangeRate,
     )
+    let originalAmount = input.originalAmount
+
+    if (input.category === Category.REFUNDS) {
+      originalAmount = -Math.abs(originalAmount)
+      usdAmount = -Math.abs(usdAmount)
+    }
 
     let description: string | null = input.description ?? null
 
     if (input.category === Category.OTHER) {
-      if (CategoryAggregator.requiresOtrosGrandeName(usdAmount)) {
-        if (!description || !isValidOtrosGrandeName(description)) {
-          throw new Error('Ingresá un nombre de una o dos palabras')
+      if (description && description.trim()) {
+        if (!isValidCustomCategoryName(description)) {
+          throw new Error('Nombre de categoría inválido (máx. 40 caracteres)')
         }
-        description = normalizeOtrosGrandeName(description)
+        description = normalizeCustomCategoryName(description)
       } else {
         description = null
       }
@@ -47,7 +56,7 @@ export class ExpenseService {
       category: input.category,
       description,
       originalCurrency: input.originalCurrency,
-      originalAmount: input.originalAmount,
+      originalAmount,
       exchangeRate,
       usdAmount,
       createdAt: iso,
@@ -71,28 +80,23 @@ export class ExpenseService {
       input.originalCurrency,
       settings,
     )
-    const usdAmount = CurrencyConverter.convertToUsd(
+    let usdAmount = CurrencyConverter.convertToUsd(
       input.originalAmount,
       input.originalCurrency,
       exchangeRate,
     )
+    let originalAmount = input.originalAmount
 
-    let description = expense.description
-    if (expense.category === Category.OTHER) {
-      if (CategoryAggregator.requiresOtrosGrandeName(usdAmount)) {
-        if (!description) {
-          throw new Error('Este movimiento requiere un nombre')
-        }
-      } else {
-        description = null
-      }
+    if (expense.category === Category.REFUNDS) {
+      originalAmount = -Math.abs(originalAmount)
+      usdAmount = -Math.abs(usdAmount)
     }
 
     return {
       ...expense,
-      description,
+      description: expense.description,
       originalCurrency: input.originalCurrency,
-      originalAmount: input.originalAmount,
+      originalAmount,
       exchangeRate,
       usdAmount,
       updatedAt: new Date().toISOString(),

@@ -9,12 +9,25 @@ interface AmountInputProps {
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void
   className?: string
   'aria-label'?: string
+  'aria-invalid'?: boolean
+  'aria-describedby'?: string
   autoFocus?: boolean
 }
 
 export const AmountInput = forwardRef<HTMLInputElement, AmountInputProps>(
   function AmountInput(
-    { id, value, onChange, onBlur, onKeyDown, className = '', 'aria-label': ariaLabel, autoFocus },
+    {
+      id,
+      value,
+      onChange,
+      onBlur,
+      onKeyDown,
+      className = '',
+      'aria-label': ariaLabel,
+      'aria-invalid': ariaInvalid,
+      'aria-describedby': ariaDescribedBy,
+      autoFocus,
+    },
     ref,
   ) {
     const innerRef = useRef<HTMLInputElement>(null)
@@ -38,6 +51,8 @@ export const AmountInput = forwardRef<HTMLInputElement, AmountInputProps>(
         onKeyDown={onKeyDown}
         className={className}
         aria-label={ariaLabel ?? 'Importe'}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
       />
     )
   },
