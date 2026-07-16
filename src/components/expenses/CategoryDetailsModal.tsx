@@ -1,8 +1,9 @@
 import { ACCOUNT_LABELS } from '@/constants/categories'
-import { AccountType, Category } from '@/types/enums'
+import { AccountType, Category, Currency } from '@/types/enums'
 import type { CategoryRow, Expense } from '@/types/models'
+import { accountingAmount } from '@/services/AccountingCurrency'
 import { formatDetailTimestamp } from '@/utils/date'
-import { formatUsdLabel } from '@/utils/formatters'
+import { formatMoneyLabel } from '@/utils/formatters'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 
@@ -13,6 +14,8 @@ interface CategoryDetailsModalProps {
   items: Expense[]
   totalWhite: number
   totalCash: number
+  enabledAccounts?: AccountType[]
+  accountingCurrency?: Currency
   onClose: () => void
   onRemoveCategory?: () => void
 }
@@ -24,6 +27,8 @@ export function CategoryDetailsModal({
   items,
   totalWhite,
   totalCash,
+  enabledAccounts = [AccountType.WHITE, AccountType.CASH],
+  accountingCurrency = Currency.USD,
   onClose,
   onRemoveCategory,
 }: CategoryDetailsModalProps) {
@@ -33,6 +38,9 @@ export function CategoryDetailsModal({
     accountType === AccountType.WHITE ? totalWhite : totalCash
   const showDetailLabel = row.category !== Category.OTHER && !row.isOtrosGrande
   const canDeleteCategory = row.isOtrosGrande && Boolean(onRemoveCategory)
+  const showBoth =
+    enabledAccounts.includes(AccountType.WHITE) &&
+    enabledAccounts.includes(AccountType.CASH)
 
   return (
     <Modal open={open} title={row.label} onClose={onClose}>
@@ -40,23 +48,27 @@ export function CategoryDetailsModal({
         <p className="text-base text-[var(--muted)]">
           Total en {ACCOUNT_LABELS[accountType]}{' '}
           <span className="font-semibold text-[var(--text)]">
-            {formatUsdLabel(accountTotal)}
+            {formatMoneyLabel(accountTotal, accountingCurrency)}
           </span>
         </p>
-        <p className="text-sm text-[var(--muted)]">
-          {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
-          <span className="font-medium text-[var(--text)]">
-            {formatUsdLabel(totalWhite)}
-          </span>
-          {' · '}
-          {ACCOUNT_LABELS[AccountType.CASH]}{' '}
-          <span className="font-medium text-[var(--text)]">
-            {formatUsdLabel(totalCash)}
-          </span>
-        </p>
-        <p className="text-xs text-[var(--muted)]">
-          Totales de esta categoría en ambas cuentas
-        </p>
+        {showBoth && (
+          <>
+            <p className="text-sm text-[var(--muted)]">
+              {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
+              <span className="font-medium text-[var(--text)]">
+                {formatMoneyLabel(totalWhite, accountingCurrency)}
+              </span>
+              {' · '}
+              {ACCOUNT_LABELS[AccountType.CASH]}{' '}
+              <span className="font-medium text-[var(--text)]">
+                {formatMoneyLabel(totalCash, accountingCurrency)}
+              </span>
+            </p>
+            <p className="text-xs text-[var(--muted)]">
+              Totales de esta categoría en ambas cuentas
+            </p>
+          </>
+        )}
       </div>
 
       {items.length === 0 ? (
@@ -80,7 +92,10 @@ export function CategoryDetailsModal({
                     {formatDetailTimestamp(expense.createdAt)}
                   </span>
                   <span className="font-semibold tabular-nums">
-                    {formatUsdLabel(expense.usdAmount)}
+                    {formatMoneyLabel(
+                      accountingAmount(expense, accountingCurrency),
+                      accountingCurrency,
+                    )}
                   </span>
                 </div>
                 {detail && (

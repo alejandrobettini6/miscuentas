@@ -1,5 +1,10 @@
-import { DEFAULT_SETTINGS } from '@/constants/categories'
 import { getSupabaseClient } from '@/lib/supabaseClient'
+import {
+  createDefaultSettings,
+  mergeSettingsUpdate,
+  normalizeSettings,
+} from '@/services/SettingsDefaults'
+import { MonthMode } from '@/types/enums'
 import type { Settings, UpdateSettingsInput } from '@/types/models'
 import type { SettingsRepository } from '../interfaces'
 
@@ -9,17 +14,46 @@ interface SettingsRow {
   usd_cash: number
   monthly_limit: number
   custom_categories?: string[] | null
+  enabled_accounts?: string[] | null
+  enabled_currencies?: string[] | null
+  enabled_fixed_categories?: string[] | null
+  month_mode?: string | null
+  onboarding_completed?: boolean | null
   updated_at: string
 }
 
 function mapRow(row: SettingsRow): Settings {
+  return normalizeSettings(
+    {
+      userId: row.user_id,
+      usdWhite: Number(row.usd_white),
+      usdCash: Number(row.usd_cash),
+      monthlyLimit: Number(row.monthly_limit),
+      customCategories: Array.isArray(row.custom_categories) ? row.custom_categories : [],
+      enabledAccounts: row.enabled_accounts as Settings['enabledAccounts'],
+      enabledCurrencies: row.enabled_currencies as Settings['enabledCurrencies'],
+      enabledFixedCategories: row.enabled_fixed_categories as Settings['enabledFixedCategories'],
+      monthMode: (row.month_mode as MonthMode | null) ?? MonthMode.AUTOMATIC,
+      onboardingCompleted: Boolean(row.onboarding_completed),
+      updatedAt: row.updated_at,
+    },
+    row.user_id,
+  )
+}
+
+function toRow(settings: Settings) {
   return {
-    userId: row.user_id,
-    usdWhite: Number(row.usd_white),
-    usdCash: Number(row.usd_cash),
-    monthlyLimit: Number(row.monthly_limit),
-    customCategories: Array.isArray(row.custom_categories) ? row.custom_categories : [],
-    updatedAt: row.updated_at,
+    user_id: settings.userId,
+    usd_white: settings.usdWhite,
+    usd_cash: settings.usdCash,
+    monthly_limit: settings.monthlyLimit,
+    custom_categories: settings.customCategories,
+    enabled_accounts: settings.enabledAccounts,
+    enabled_currencies: settings.enabledCurrencies,
+    enabled_fixed_categories: settings.enabledFixedCategories,
+    month_mode: settings.monthMode,
+    onboarding_completed: settings.onboardingCompleted,
+    updated_at: settings.updatedAt,
   }
 }
 
@@ -36,18 +70,10 @@ export class SupabaseSettingsRepository implements SettingsRepository {
 
     if (data) return mapRow(data as SettingsRow)
 
-    const defaults = {
-      user_id: userId,
-      usd_white: DEFAULT_SETTINGS.usdWhite,
-      usd_cash: DEFAULT_SETTINGS.usdCash,
-      monthly_limit: DEFAULT_SETTINGS.monthlyLimit,
-      custom_categories: DEFAULT_SETTINGS.customCategories,
-      updated_at: new Date().toISOString(),
-    }
-
+    const defaults = createDefaultSettings(userId)
     const { data: created, error: insertError } = await supabase
       .from('settings')
-      .insert(defaults)
+      .insert(toRow(defaults))
       .select('*')
       .single()
 
@@ -57,19 +83,12 @@ export class SupabaseSettingsRepository implements SettingsRepository {
 
   async update(userId: string, input: UpdateSettingsInput): Promise<Settings> {
     const current = await this.get(userId)
-    const payload = {
-      user_id: userId,
-      usd_white: input.usdWhite ?? current.usdWhite,
-      usd_cash: input.usdCash ?? current.usdCash,
-      monthly_limit: input.monthlyLimit ?? current.monthlyLimit,
-      custom_categories: input.customCategories ?? current.customCategories,
-      updated_at: new Date().toISOString(),
-    }
+    const next = mergeSettingsUpdate(current, input)
 
     const supabase = getSupabaseClient()
     const { data, error } = await supabase
       .from('settings')
-      .upsert(payload)
+      .upsert(toRow(next))
       .select('*')
       .single()
 

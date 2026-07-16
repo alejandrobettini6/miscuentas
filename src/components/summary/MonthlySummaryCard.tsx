@@ -1,7 +1,7 @@
 import { ACCOUNT_LABELS } from '@/constants/categories'
-import { AccountType, BudgetColor } from '@/types/enums'
+import { AccountType, BudgetColor, Currency } from '@/types/enums'
 import type { MonthlySummary } from '@/types/models'
-import { formatPercent, formatUsdLabel } from '@/utils/formatters'
+import { formatMoneyLabel, formatPercent } from '@/utils/formatters'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 
 const TEXT_COLORS: Record<BudgetColor, string> = {
@@ -15,18 +15,22 @@ interface MonthlySummaryCardProps {
   summary: MonthlySummary
   color: BudgetColor
   progress: number
+  enabledAccounts?: AccountType[]
+  accountingCurrency?: Currency
 }
 
 export function MonthlySummaryCard({
   summary,
   color,
   progress,
+  enabledAccounts = [AccountType.WHITE, AccountType.CASH],
+  accountingCurrency = Currency.USD,
 }: MonthlySummaryCardProps) {
   return (
     <section className="rounded-2xl bg-white p-5">
       <p className="text-sm text-[var(--muted)]">Disponible este mes</p>
       <p className={`mt-1 text-4xl font-bold tabular-nums ${TEXT_COLORS[color]}`}>
-        {formatUsdLabel(summary.available)}
+        {formatMoneyLabel(summary.available, accountingCurrency)}
       </p>
 
       <div className="mt-4">
@@ -40,23 +44,27 @@ export function MonthlySummaryCard({
       <p className="mt-3 text-base text-[var(--muted)]">
         Total gastado{' '}
         <span className="font-semibold text-[var(--text)]">
-          {formatUsdLabel(summary.totalSpent)}
+          {formatMoneyLabel(summary.totalSpent, accountingCurrency)}
         </span>
       </p>
 
       <div className="mt-2 space-y-1 text-sm text-[var(--muted)]">
-        <p>
-          {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
-          <span className="font-semibold text-[var(--text)]">
-            {formatUsdLabel(summary.totalWhite)}
-          </span>
-        </p>
-        <p>
-          {ACCOUNT_LABELS[AccountType.CASH]}{' '}
-          <span className="font-semibold text-[var(--text)]">
-            {formatUsdLabel(summary.totalCash)}
-          </span>
-        </p>
+        {enabledAccounts.includes(AccountType.WHITE) && (
+          <p>
+            {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
+            <span className="font-semibold text-[var(--text)]">
+              {formatMoneyLabel(summary.totalWhite, accountingCurrency)}
+            </span>
+          </p>
+        )}
+        {enabledAccounts.includes(AccountType.CASH) && (
+          <p>
+            {ACCOUNT_LABELS[AccountType.CASH]}{' '}
+            <span className="font-semibold text-[var(--text)]">
+              {formatMoneyLabel(summary.totalCash, accountingCurrency)}
+            </span>
+          </p>
+        )}
       </div>
     </section>
   )

@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { Settings, X } from 'lucide-react'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useSettingsContext } from '@/contexts/SettingsContext'
+import {
+  resolveAccountingCurrency,
+  shouldShowUsdCashRate,
+  shouldShowUsdWhiteRate,
+} from '@/services/AccountingCurrency'
 import { ExportService } from '@/services/ExportService'
-import type { Expense } from '@/types/models'
+import type { Expense, Period } from '@/types/models'
 import {
   formatAmountFromNumber,
   isValidExchangeRate,
@@ -15,22 +20,40 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '@/utils/errors'
+import { Currency, MonthMode } from '@/types/enums'
 
 interface SideMenuProps {
   open: boolean
   expenses: Expense[]
+  allExpenses: Expense[]
+  periods: Period[]
+  monthMode: MonthMode
   onClose: () => void
-  onResetMonth: () => Promise<void>
+  onClosePeriod: () => Promise<void>
+  onOpenSettings: () => void
+  onOpenOnboarding: () => void
+  onOpenImport: () => void
 }
 
 type SettingField = 'usdWhite' | 'usdCash' | 'monthlyLimit' | null
 
-export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProps) {
+export function SideMenu({
+  open,
+  expenses,
+  allExpenses,
+  periods,
+  monthMode,
+  onClose,
+  onClosePeriod,
+  onOpenSettings,
+  onOpenOnboarding,
+  onOpenImport,
+}: SideMenuProps) {
   const { logout } = useAuthContext()
   const { settings, updateSettings } = useSettingsContext()
   const [activeField, setActiveField] = useState<SettingField>(null)
   const [fieldValue, setFieldValue] = useState('')
-  const [resetStep, setResetStep] = useState<0 | 1 | 2>(0)
+  const [closeStep, setCloseStep] = useState<0 | 1 | 2>(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -40,6 +63,16 @@ export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProp
   }, [activeField])
 
   if (!open) return null
+
+  const showUsdWhite = settings ? shouldShowUsdWhiteRate(settings) : false
+  const showUsdCash = settings ? shouldShowUsdCashRate(settings) : false
+  const accountingCurrency = settings
+    ? resolveAccountingCurrency(settings)
+    : Currency.USD
+  const monthlyLimitLabel =
+    accountingCurrency === Currency.ARS
+      ? 'Límite mensual (ARS)'
+      : 'Límite mensual (USD)'
 
   const openField = (field: Exclude<SettingField, null>) => {
     if (!settings) return
@@ -85,7 +118,10 @@ export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProp
     if (!settings) return
     ExportService.download(
       'miscuentas.csv',
-      ExportService.toCsv(expenses),
+      ExportService.toCsv(expenses, {
+        enabledAccounts: settings.enabledAccounts,
+        customCategories: settings.customCategories,
+      }),
       'text/csv;charset=utf-8',
     )
   }
@@ -102,19 +138,19 @@ export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProp
     if (!settings) return
     ExportService.download(
       'miscuentas.json',
-      ExportService.toJson(expenses, settings),
+      ExportService.toJson(allExpenses, settings, periods),
       'application/json',
     )
   }
 
-  const confirmReset = async () => {
+  const confirmClosePeriod = async () => {
     try {
-      await onResetMonth()
-      setResetStep(0)
+      await onClosePeriod()
+      setCloseStep(0)
       onClose()
-      toast.success('Mes reiniciado')
+      toast.success('Mes cerrado')
     } catch {
-      toast.error('No se pudo reiniciar el mes')
+      toast.error('No se pudo cerrar el mes')
     }
   }
 
@@ -136,20 +172,54 @@ export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProp
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
           <Section title="General">
-            <MenuButton label="USD Blanco" onClick={() => openField('usdWhite')} />
-            <MenuButton label="USD Barrani" onClick={() => openField('usdCash')} />
-            <MenuButton label="Límite mensual" onClick={() => openField('monthlyLimit')} />
+            <MenuButton
+              label="Configuración"
+              icon={<Settings size={18} />}
+              onClick={() => {
+                onClose()
+                onOpenSettings()
+              }}
+            />
+            <MenuButton
+              label="Preguntas para autoconfigurar mi perfil"
+              onClick={() => {
+                onClose()
+                onOpenOnboarding()
+              }}
+            />
+            {showUsdWhite && (
+              <MenuButton label="USD Blanco" onClick={() => openField('usdWhite')} />
+            )}
+            {showUsdCash && (
+              <MenuButton label="USD Negro" onClick={() => openField('usdCash')} />
+            )}
+            <MenuButton
+              label={monthlyLimitLabel}
+              onClick={() => openField('monthlyLimit')}
+            />
           </Section>
 
           <Section title="Datos">
             <MenuButton label="Exportar CSV" onClick={exportCsv} />
             <MenuButton label="Exportar movimientos" onClick={exportLogs} />
             <MenuButton label="Exportar JSON" onClick={exportJson} />
+            <MenuButton
+              label="Importar cuentas"
+              onClick={() => {
+                onClose()
+                onOpenImport()
+              }}
+            />
           </Section>
 
-          <Section title="Peligro" danger>
-            <MenuButton label="Reset Mes" danger onClick={() => setResetStep(1)} />
-          </Section>
+          {monthMode === MonthMode.MANUAL && (
+            <Section title="Período">
+              <MenuButton
+                label="Cerrar mes"
+                onClick={() => setCloseStep(1)}
+              />
+            </Section>
+          )}
 
           <Button
             variant="secondary"
@@ -168,8 +238,8 @@ export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProp
           activeField === 'usdWhite'
             ? 'USD Blanco'
             : activeField === 'usdCash'
-              ? 'USD Barrani'
-              : 'Límite mensual'
+              ? 'USD Negro'
+              : monthlyLimitLabel
         }
         onClose={() => setActiveField(null)}
       >
@@ -188,29 +258,29 @@ export function SideMenu({ open, expenses, onClose, onResetMonth }: SideMenuProp
         />
       </Modal>
 
-      <Modal open={resetStep === 1} title="Reset Mes" onClose={() => setResetStep(0)}>
+      <Modal open={closeStep === 1} title="Cerrar mes" onClose={() => setCloseStep(0)}>
         <p className="mb-4 text-[var(--muted)]">
-          ¿Seguro que querés eliminar todos los movimientos?
+          ¿Cerrar el mes actual? Quedará en solo lectura y se abrirá el siguiente.
         </p>
         <div className="flex gap-3">
-          <Button variant="secondary" className="flex-1" onClick={() => setResetStep(0)}>
+          <Button variant="secondary" className="flex-1" onClick={() => setCloseStep(0)}>
             No
           </Button>
-          <Button variant="danger" className="flex-1" onClick={() => setResetStep(2)}>
+          <Button className="flex-1" onClick={() => setCloseStep(2)}>
             Sí
           </Button>
         </div>
       </Modal>
 
-      <Modal open={resetStep === 2} title="Confirmación final" onClose={() => setResetStep(0)}>
+      <Modal open={closeStep === 2} title="Confirmación final" onClose={() => setCloseStep(0)}>
         <p className="mb-4 text-[var(--muted)]">
-          Esta acción no se puede deshacer. ¿Confirmás el reset?
+          Los movimientos del mes cerrado se conservan. ¿Confirmás?
         </p>
         <div className="flex gap-3">
-          <Button variant="secondary" className="flex-1" onClick={() => setResetStep(0)}>
+          <Button variant="secondary" className="flex-1" onClick={() => setCloseStep(0)}>
             Cancelar
           </Button>
-          <Button variant="danger" className="flex-1" onClick={() => void confirmReset()}>
+          <Button className="flex-1" onClick={() => void confirmClosePeriod()}>
             Confirmar
           </Button>
         </div>
@@ -246,21 +316,24 @@ function MenuButton({
   label,
   onClick,
   danger,
+  icon,
 }: {
   label: string
   onClick: () => void
   danger?: boolean
+  icon?: ReactNode
 }) {
   return (
     <button
       type="button"
-      className={`flex min-h-12 w-full items-center border-b border-white/70 px-4 text-left text-base last:border-b-0 ${
+      className={`flex min-h-12 w-full items-center gap-2 border-b border-white/70 px-4 text-left text-base last:border-b-0 ${
         danger ? 'font-semibold text-[var(--red)]' : 'text-[var(--text)]'
       }`}
       onClick={onClick}
       aria-label={label}
     >
-      {label}
+      {icon}
+      <span>{label}</span>
     </button>
   )
 }

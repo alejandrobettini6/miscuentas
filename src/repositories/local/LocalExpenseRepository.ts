@@ -57,7 +57,14 @@ export class LocalExpenseRepository implements ExpenseRepository {
     )
   }
 
-  async resetMonth(userId: string): Promise<void> {
-    writeJson(expensesKey(userId), [])
+  async resetMonth(_userId: string): Promise<void> {
+    void _userId
+  }
+
+  async replaceAll(userId: string, expenses: Expense[]): Promise<void> {
+    writeJson(
+      expensesKey(userId),
+      expenses.map((e) => ({ ...e, userId })),
+    )
   }
 }

@@ -4,17 +4,34 @@ import { AccountType } from '@/types/enums'
 interface TabsProps {
   value: AccountType
   onChange: (value: AccountType) => void
+  enabledAccounts?: AccountType[]
   disabled?: boolean
 }
 
-export function Tabs({ value, onChange, disabled }: TabsProps) {
+export function Tabs({
+  value,
+  onChange,
+  enabledAccounts = [AccountType.WHITE, AccountType.CASH],
+  disabled,
+}: TabsProps) {
+  if (enabledAccounts.length <= 1) {
+    const only = enabledAccounts[0]
+    if (!only) return null
+    return (
+      <div className="rounded-2xl bg-[#e5e5ea] px-4 py-3 text-center text-base font-semibold">
+        {ACCOUNT_LABELS[only]}
+      </div>
+    )
+  }
+
   return (
     <div
-      className="grid grid-cols-2 gap-1 rounded-2xl bg-[#e5e5ea] p-1"
+      className="grid gap-1 rounded-2xl bg-[#e5e5ea] p-1"
+      style={{ gridTemplateColumns: `repeat(${enabledAccounts.length}, minmax(0, 1fr))` }}
       role="tablist"
       aria-label="Cuenta"
     >
-      {[AccountType.WHITE, AccountType.CASH].map((account) => {
+      {enabledAccounts.map((account) => {
         const active = value === account
         return (
           <button

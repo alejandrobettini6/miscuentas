@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { AddCategoryRow } from '@/components/expenses/AddCategoryRow'
 import { CategoryDetailsModal } from '@/components/expenses/CategoryDetailsModal'
@@ -6,18 +6,27 @@ import { CategoryRow } from '@/components/expenses/CategoryRow'
 import { Header } from '@/components/layout/Header'
 import { SideMenu } from '@/components/layout/SideMenu'
 import { UndoBar, createUndoDeadline } from '@/components/layout/UndoBar'
+import { ImportAccountsModal } from '@/components/settings/ImportAccountsModal'
+import {
+  draftToSettingsInput,
+  OnboardingWizard,
+  type OnboardingDraft,
+} from '@/components/settings/OnboardingWizard'
+import { SettingsPanel } from '@/components/settings/SettingsPanel'
 import { MonthlySummaryCard } from '@/components/summary/MonthlySummaryCard'
 import { AmountSheet } from '@/components/ui/AmountSheet'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Tabs } from '@/components/ui/Tabs'
+import { CATEGORY_LABELS, DEFAULT_SETTINGS } from '@/constants/categories'
+import { useSettingsContext } from '@/contexts/SettingsContext'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { usePeriods } from '@/hooks/usePeriods'
 import { useSummary } from '@/hooks/useSummary'
-import { useSettingsContext } from '@/contexts/SettingsContext'
-import { CATEGORY_LABELS } from '@/constants/categories'
 import { CategoryAggregator } from '@/services/CategoryAggregator'
-import { AccountType, Category, Currency } from '@/types/enums'
+import { VisibilityProjector } from '@/services/VisibilityProjector'
+import { AccountType, Category, Currency, MonthMode, PeriodStatus } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel, Expense } from '@/types/models'
 import { getErrorMessage } from '@/utils/errors'
 import {
@@ -34,18 +43,38 @@ type AmountMode =
 export function HomePage() {
   const { settings, updateSettings } = useSettingsContext()
   const {
-    expenses,
+    expenses: allExpenses,
     isLoading,
     createExpense,
     updateExpense,
     removeExpense,
-    resetMonth,
     isMutating,
+    refresh: refreshExpenses,
   } = useExpenses()
+  const { periods, activePeriod, closePeriod, isClosing, refresh: refreshPeriods } =
+    usePeriods()
   const { isOnline, pendingCount } = useOnlineStatus()
 
-  const [accountType, setAccountType] = useState<AccountType>(AccountType.WHITE)
+  const enabledAccounts = settings?.enabledAccounts ?? [
+    AccountType.WHITE,
+    AccountType.CASH,
+  ]
+  const enabledCurrencies = settings?.enabledCurrencies ?? [
+    Currency.USD,
+    Currency.ARS,
+  ]
+
+  const [accountType, setAccountType] = useState<AccountType>(
+    enabledAccounts[0] ?? AccountType.WHITE,
+  )
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
+  const [onboardingMode, setOnboardingMode] = useState<'initial' | 'reconfigure'>(
+    'initial',
+  )
   const [amountMode, setAmountMode] = useState<AmountMode>(null)
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null)
   const [removeCategoryTarget, setRemoveCategoryTarget] =
@@ -55,22 +84,67 @@ export function HomePage() {
   const [undoExpenseId, setUndoExpenseId] = useState<string | null>(null)
   const [busyRowKey, setBusyRowKey] = useState<string | null>(null)
 
-  const { summary, color, progress, rows } = useSummary(expenses, accountType)
+  useEffect(() => {
+    if (!settings) return
+    if (!settings.onboardingCompleted) {
+      setOnboardingMode('initial')
+      setOnboardingOpen(true)
+    }
+  }, [settings])
+
+  useEffect(() => {
+    if (!enabledAccounts.includes(accountType)) {
+      setAccountType(enabledAccounts[0] ?? AccountType.WHITE)
+    }
+  }, [enabledAccounts, accountType])
+
+  useEffect(() => {
+    if (selectedPeriodId && periods.some((p) => p.id === selectedPeriodId)) return
+    if (activePeriod) setSelectedPeriodId(activePeriod.id)
+    else if (periods[0]) setSelectedPeriodId(periods[0].id)
+  }, [periods, activePeriod, selectedPeriodId])
+
+  const selectedPeriod =
+    periods.find((p) => p.id === selectedPeriodId) ?? activePeriod
+  const isReadOnly =
+    !selectedPeriod || selectedPeriod.status === PeriodStatus.CLOSED
+
+  const visibleExpenses = useMemo(() => {
+    if (!settings || !selectedPeriod) return []
+    return VisibilityProjector.projectPeriod(
+      allExpenses,
+      settings,
+      selectedPeriod.id,
+    )
+  }, [allExpenses, settings, selectedPeriod])
+
+  const { summary, color, progress, rows, accountingCurrency } = useSummary(
+    visibleExpenses,
+    accountType,
+  )
 
   const rowKey = (row: CategoryRowModel) =>
     `${row.category}:${row.description ?? ''}`
 
-  const locked = isMutating || busyRowKey !== null
+  const locked = isMutating || isClosing || busyRowKey !== null || isReadOnly
 
   const detailsItems = useMemo(() => {
     if (!detailsRow) return []
-    return CategoryAggregator.expensesForRow(expenses, accountType, detailsRow)
-  }, [detailsRow, expenses, accountType])
+    return CategoryAggregator.expensesForRow(
+      visibleExpenses,
+      accountType,
+      detailsRow,
+    )
+  }, [detailsRow, visibleExpenses, accountType])
 
   const detailsAccountTotals = useMemo(() => {
     if (!detailsRow) return { totalWhite: 0, totalCash: 0 }
-    return CategoryAggregator.accountTotalsForRow(expenses, detailsRow)
-  }, [detailsRow, expenses])
+    return CategoryAggregator.accountTotalsForRow(
+      visibleExpenses,
+      detailsRow,
+      accountingCurrency,
+    )
+  }, [detailsRow, visibleExpenses, accountingCurrency])
 
   const clearUndo = useCallback(() => {
     setUndoDeadline(null)
@@ -82,7 +156,7 @@ export function HomePage() {
     currency: Currency,
     categoryNameOrDetail?: string,
   ) => {
-    if (!amountMode || !settings) {
+    if (!amountMode || !settings || !selectedPeriod || isReadOnly) {
       setAmountMode(null)
       return
     }
@@ -122,6 +196,7 @@ export function HomePage() {
         }
 
         const expense = await createExpense({
+          periodId: selectedPeriod.id,
           accountType,
           category: Category.OTHER,
           description,
@@ -136,6 +211,7 @@ export function HomePage() {
 
       if (mode.row.isOtrosGrande) {
         const expense = await createExpense({
+          periodId: selectedPeriod.id,
           accountType,
           category: Category.OTHER,
           description: mode.row.description,
@@ -148,7 +224,6 @@ export function HomePage() {
         return
       }
 
-      // Categoría fija: detalle opcional en description
       let detail: string | null = null
       const trimmedDetail = categoryNameOrDetail?.trim() ?? ''
       if (trimmedDetail) {
@@ -160,6 +235,7 @@ export function HomePage() {
       }
 
       const expense = await createExpense({
+        periodId: selectedPeriod.id,
         accountType,
         category: mode.row.category,
         description: detail,
@@ -177,7 +253,7 @@ export function HomePage() {
   }
 
   const handleDelete = async () => {
-    if (!deleteTarget) return
+    if (!deleteTarget || isReadOnly) return
     const id = deleteTarget.id
     setDeleteTarget(null)
     setBusyRowKey(id)
@@ -193,7 +269,7 @@ export function HomePage() {
   }
 
   const handleUndo = async () => {
-    if (!undoExpenseId) return
+    if (!undoExpenseId || isReadOnly) return
     const id = undoExpenseId
     clearUndo()
     try {
@@ -205,7 +281,7 @@ export function HomePage() {
   }
 
   const handleAddCategory = async (rawName: string) => {
-    if (!settings) throw new Error('Sin configuración')
+    if (!settings || isReadOnly) throw new Error('Sin configuración')
 
     if (!isValidCustomCategoryName(rawName)) {
       throw new Error('Nombre inválido (máx. 40 caracteres)')
@@ -223,7 +299,7 @@ export function HomePage() {
       throw new Error('Esa categoría ya existe')
     }
 
-    const fromExpenses = expenses.some(
+    const fromExpenses = allExpenses.some(
       (e) =>
         e.category === Category.OTHER &&
         e.description?.toLowerCase() === lower,
@@ -239,7 +315,7 @@ export function HomePage() {
   }
 
   const customExpensesForRow = (row: CategoryRowModel) =>
-    expenses.filter(
+    allExpenses.filter(
       (e) =>
         e.category === Category.OTHER &&
         Boolean(e.description) &&
@@ -247,10 +323,10 @@ export function HomePage() {
     )
 
   const canRemoveCustomCategory = (row: CategoryRowModel) =>
-    row.isOtrosGrande && customExpensesForRow(row).length === 0
+    row.isOtrosGrande && customExpensesForRow(row).length === 0 && !isReadOnly
 
   const handleRemoveCategory = async () => {
-    if (!removeCategoryTarget || !settings) return
+    if (!removeCategoryTarget || !settings || isReadOnly) return
     const row = removeCategoryTarget
     const key = rowKey(row)
     setRemoveCategoryTarget(null)
@@ -258,11 +334,9 @@ export function HomePage() {
     setBusyRowKey(key)
 
     try {
-      const related = customExpensesForRow(row)
-      for (const expense of related) {
-        await removeExpense(expense.id)
-      }
-
+      // No borramos movimientos: solo quitamos la categoría de settings.
+      // Si hay gastos, se vuelve a sembrar al agregar de nuevo o desde movimientos.
+      const relatedCount = customExpensesForRow(row).length
       const lower = (row.description ?? '').toLowerCase()
       const nextCustom = settings.customCategories.filter(
         (c) => c.toLowerCase() !== lower,
@@ -271,13 +345,35 @@ export function HomePage() {
         await updateSettings({ customCategories: nextCustom })
       }
 
-      toast.success('Categoría eliminada')
+      toast.success(
+        relatedCount > 0
+          ? 'Categoría oculta (movimientos conservados)'
+          : 'Categoría eliminada',
+      )
       clearUndo()
     } catch (error) {
       toast.error(getErrorMessage(error, 'No se pudo eliminar la categoría'))
     } finally {
       setBusyRowKey(null)
     }
+  }
+
+  const completeOnboarding = async (draft: OnboardingDraft) => {
+    await updateSettings(draftToSettingsInput(draft))
+    setOnboardingOpen(false)
+    toast.success('Configuración aplicada')
+  }
+
+  const skipOnboarding = async () => {
+    await updateSettings({
+      enabledAccounts: [...DEFAULT_SETTINGS.enabledAccounts],
+      enabledCurrencies: [...DEFAULT_SETTINGS.enabledCurrencies],
+      enabledFixedCategories: [...DEFAULT_SETTINGS.enabledFixedCategories],
+      monthMode: MonthMode.AUTOMATIC,
+      onboardingCompleted: true,
+    })
+    setOnboardingOpen(false)
+    toast.success('Configuración por defecto aplicada')
   }
 
   const showCategoryName =
@@ -290,9 +386,19 @@ export function HomePage() {
     amountMode.row.category !== Category.OTHER &&
     !amountMode.row.isOtrosGrande
 
+  const defaultCurrency = enabledCurrencies.includes(Currency.USD)
+    ? Currency.USD
+    : (enabledCurrencies[0] ?? Currency.USD)
+
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[480px] px-4 pb-28">
-      <Header onOpenMenu={() => setMenuOpen(true)} />
+      <Header
+        onOpenMenu={() => setMenuOpen(true)}
+        periods={periods}
+        selectedPeriodId={selectedPeriod?.id ?? null}
+        onSelectPeriod={setSelectedPeriodId}
+        readOnly={isReadOnly}
+      />
 
       {!isOnline && (
         <p className="mb-3 rounded-xl bg-[#fff3cd] px-3 py-2 text-sm text-[#856404]">
@@ -304,11 +410,27 @@ export function HomePage() {
           Pendiente de sincronización ({pendingCount})
         </p>
       )}
+      {isReadOnly && (
+        <p className="mb-3 rounded-xl bg-[#f2f2f7] px-3 py-2 text-sm text-[var(--muted)]">
+          Estás viendo un mes cerrado. Solo lectura.
+        </p>
+      )}
 
-      <MonthlySummaryCard summary={summary} color={color} progress={progress} />
+      <MonthlySummaryCard
+        summary={summary}
+        color={color}
+        progress={progress}
+        enabledAccounts={enabledAccounts}
+        accountingCurrency={accountingCurrency}
+      />
 
       <div className="mt-4">
-        <Tabs value={accountType} onChange={setAccountType} disabled={locked} />
+        <Tabs
+          value={accountType}
+          onChange={setAccountType}
+          enabledAccounts={enabledAccounts}
+          disabled={locked && !isReadOnly ? true : false}
+        />
       </div>
 
       <section className="mt-2 rounded-2xl bg-white px-3">
@@ -320,11 +442,15 @@ export function HomePage() {
               <CategoryRow
                 key={rowKey(row)}
                 row={row}
+                accountingCurrency={accountingCurrency}
                 disabled={locked}
                 canRemoveCategory={canRemoveCustomCategory(row)}
-                onRegister={() => setAmountMode({ type: 'create', row })}
+                onRegister={() => {
+                  if (isReadOnly) return
+                  setAmountMode({ type: 'create', row })
+                }}
                 onEdit={() => {
-                  if (!row.lastExpense) return
+                  if (isReadOnly || !row.lastExpense) return
                   setAmountMode({
                     type: 'edit',
                     row,
@@ -332,14 +458,16 @@ export function HomePage() {
                   })
                 }}
                 onDelete={() => {
-                  if (!row.lastExpense) return
+                  if (isReadOnly || !row.lastExpense) return
                   setDeleteTarget(row.lastExpense)
                 }}
                 onViewDetails={() => setDetailsRow(row)}
                 onRemoveCategory={() => setRemoveCategoryTarget(row)}
               />
             ))}
-            <AddCategoryRow disabled={locked} onAdd={handleAddCategory} />
+            {!isReadOnly && (
+              <AddCategoryRow disabled={locked} onAdd={handleAddCategory} />
+            )}
           </>
         )}
       </section>
@@ -361,8 +489,9 @@ export function HomePage() {
         initialCurrency={
           amountMode?.type === 'edit'
             ? amountMode.expense.originalCurrency
-            : Currency.USD
+            : defaultCurrency
         }
+        enabledCurrencies={enabledCurrencies}
         showCategoryName={showCategoryName}
         showDetail={showDetail}
         onSubmit={(amount, currency, categoryName) =>
@@ -401,7 +530,7 @@ export function HomePage() {
         <p className="mb-4 text-[var(--muted)]">
           {removeCategoryTarget &&
           customExpensesForRow(removeCategoryTarget).length > 0
-            ? `¿Eliminar “${removeCategoryTarget.label}” y todos sus movimientos?`
+            ? `¿Ocultar “${removeCategoryTarget.label}”? Sus movimientos se conservan.`
             : `¿Eliminar la categoría “${removeCategoryTarget?.label ?? ''}”?`}
         </p>
         <div className="flex gap-3">
@@ -417,7 +546,7 @@ export function HomePage() {
             className="flex-1"
             onClick={() => void handleRemoveCategory()}
           >
-            Eliminar
+            Confirmar
           </Button>
         </div>
       </Modal>
@@ -429,9 +558,11 @@ export function HomePage() {
         items={detailsItems}
         totalWhite={detailsAccountTotals.totalWhite}
         totalCash={detailsAccountTotals.totalCash}
+        enabledAccounts={enabledAccounts}
+        accountingCurrency={accountingCurrency}
         onClose={() => setDetailsRow(null)}
         onRemoveCategory={
-          detailsRow?.isOtrosGrande
+          detailsRow?.isOtrosGrande && !isReadOnly
             ? () => {
                 const row = detailsRow
                 setDetailsRow(null)
@@ -443,12 +574,66 @@ export function HomePage() {
 
       <SideMenu
         open={menuOpen}
-        expenses={expenses}
+        expenses={visibleExpenses}
+        allExpenses={allExpenses}
+        periods={periods}
+        monthMode={settings?.monthMode ?? MonthMode.AUTOMATIC}
         onClose={() => setMenuOpen(false)}
-        onResetMonth={resetMonth}
+        onClosePeriod={async () => {
+          await closePeriod()
+        }}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenOnboarding={() => {
+          setOnboardingMode('reconfigure')
+          setOnboardingOpen(true)
+        }}
+        onOpenImport={() => setImportOpen(true)}
       />
 
-      <UndoBar deadline={undoDeadline} onUndo={() => void handleUndo()} onExpire={clearUndo} />
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onOpenOnboarding={() => {
+          setOnboardingMode('reconfigure')
+          setOnboardingOpen(true)
+        }}
+      />
+
+      {settings && (
+        <OnboardingWizard
+          open={onboardingOpen}
+          mode={onboardingMode}
+          settings={settings}
+          expenses={allExpenses}
+          periods={periods}
+          onSkip={skipOnboarding}
+          onComplete={completeOnboarding}
+          onClose={
+            onboardingMode === 'reconfigure' || settings.onboardingCompleted
+              ? () => setOnboardingOpen(false)
+              : undefined
+          }
+        />
+      )}
+
+      <ImportAccountsModal
+        open={importOpen}
+        expenses={allExpenses}
+        periods={periods}
+        onClose={() => setImportOpen(false)}
+        onImported={async () => {
+          await refreshPeriods()
+          await refreshExpenses()
+        }}
+      />
+
+      {!isReadOnly && (
+        <UndoBar
+          deadline={undoDeadline}
+          onUndo={() => void handleUndo()}
+          onExpire={clearUndo}
+        />
+      )}
     </div>
   )
 }

@@ -1,4 +1,12 @@
-import type { AccountType, Category, Currency, OfflineOperationStatus, OfflineOperationType } from './enums'
+import type {
+  AccountType,
+  Category,
+  Currency,
+  MonthMode,
+  OfflineOperationStatus,
+  OfflineOperationType,
+  PeriodStatus,
+} from './enums'
 
 export interface User {
   id: string
@@ -12,12 +20,29 @@ export interface Settings {
   monthlyLimit: number
   /** Categorías personalizadas (OTHER + nombre); viven en settings, no en el enum. */
   customCategories: string[]
+  enabledAccounts: AccountType[]
+  enabledCurrencies: Currency[]
+  enabledFixedCategories: Category[]
+  monthMode: MonthMode
+  onboardingCompleted: boolean
   updatedAt: string
+}
+
+export interface Period {
+  id: string
+  userId: string
+  label: string
+  yearMonth: string
+  status: PeriodStatus
+  startedAt: string
+  closedAt: string | null
+  monthlyLimitSnapshot: number | null
 }
 
 export interface Expense {
   id: string
   userId: string
+  periodId: string
   accountType: AccountType
   category: Category
   description: string | null
@@ -57,6 +82,7 @@ export interface MonthlySummary {
 }
 
 export interface CreateExpenseInput {
+  periodId: string
   accountType: AccountType
   category: Category
   description?: string | null
@@ -74,4 +100,48 @@ export interface UpdateSettingsInput {
   usdCash?: number
   monthlyLimit?: number
   customCategories?: string[]
+  enabledAccounts?: AccountType[]
+  enabledCurrencies?: Currency[]
+  enabledFixedCategories?: Category[]
+  monthMode?: MonthMode
+  onboardingCompleted?: boolean
+}
+
+export interface ImportAccountsPayload {
+  version: 1 | 2
+  exportedAt?: string
+  settings: {
+    usdWhite: number
+    usdCash: number
+    monthlyLimit: number
+    customCategories?: string[]
+    enabledAccounts?: AccountType[]
+    enabledCurrencies?: Currency[]
+    enabledFixedCategories?: Category[]
+    monthMode?: MonthMode
+    onboardingCompleted?: boolean
+  }
+  categories?: string[]
+  periods?: Array<{
+    id: string
+    label: string
+    yearMonth: string
+    status: PeriodStatus
+    startedAt: string
+    closedAt: string | null
+    monthlyLimitSnapshot?: number | null
+  }>
+  expenses: Array<{
+    id: string
+    periodId?: string
+    accountType: AccountType
+    category: Category
+    description: string | null
+    originalCurrency: Currency
+    originalAmount: number
+    exchangeRate: number
+    usdAmount: number
+    createdAt: string
+    updatedAt: string
+  }>
 }

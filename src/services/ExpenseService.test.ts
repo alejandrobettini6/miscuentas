@@ -1,22 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { AccountType, Category, Currency } from '@/types/enums'
-import type { Settings } from '@/types/models'
+import { PERIOD_ID, testSettings } from '@/test/fixtures'
 import { ExpenseService } from './ExpenseService'
 
-const settings: Settings = {
-  userId: 'u',
-  usdWhite: 1000,
-  usdCash: 1200,
-  monthlyLimit: 1500,
-  customCategories: [],
-  updatedAt: new Date().toISOString(),
-}
+const settings = testSettings({ usdWhite: 1000, usdCash: 1200 })
 
 describe('ExpenseService', () => {
   it('guarda cotización histórica al crear en ARS', () => {
     const expense = ExpenseService.buildExpense(
       'u',
       {
+        periodId: PERIOD_ID,
         accountType: AccountType.WHITE,
         category: Category.SUPER,
         originalAmount: 2000,
@@ -27,12 +21,14 @@ describe('ExpenseService', () => {
 
     expect(expense.exchangeRate).toBe(1000)
     expect(expense.usdAmount).toBe(2)
+    expect(expense.periodId).toBe(PERIOD_ID)
   })
 
   it('registra Otros sin nombre cuando la descripción está vacía', () => {
     const expense = ExpenseService.buildExpense(
       'u',
       {
+        periodId: PERIOD_ID,
         accountType: AccountType.WHITE,
         category: Category.OTHER,
         originalAmount: 200,
@@ -47,6 +43,7 @@ describe('ExpenseService', () => {
     const expense = ExpenseService.buildExpense(
       'u',
       {
+        periodId: PERIOD_ID,
         accountType: AccountType.WHITE,
         category: Category.OTHER,
         description: '  Guitarra  ',
@@ -62,6 +59,7 @@ describe('ExpenseService', () => {
     const expense = ExpenseService.buildExpense(
       'u',
       {
+        periodId: PERIOD_ID,
         accountType: AccountType.CASH,
         category: Category.OTHER,
         description: '  Impuesto   pais  ',
@@ -79,6 +77,7 @@ describe('ExpenseService', () => {
       ExpenseService.buildExpense(
         'u',
         {
+          periodId: PERIOD_ID,
           accountType: AccountType.WHITE,
           category: Category.OTHER,
           description: 'x'.repeat(41),
@@ -94,6 +93,7 @@ describe('ExpenseService', () => {
     const expense = ExpenseService.buildExpense(
       'u',
       {
+        periodId: PERIOD_ID,
         accountType: AccountType.WHITE,
         category: Category.SUPER,
         description: '  Carniceria  ',
@@ -110,6 +110,7 @@ describe('ExpenseService', () => {
     const expense = ExpenseService.buildExpense(
       'u',
       {
+        periodId: PERIOD_ID,
         accountType: AccountType.WHITE,
         category: Category.DELIVERY,
         originalAmount: 20,
@@ -125,6 +126,7 @@ describe('ExpenseService', () => {
       ExpenseService.buildExpense(
         'u',
         {
+          periodId: PERIOD_ID,
           accountType: AccountType.WHITE,
           category: Category.SUPER,
           description: 'x'.repeat(41),
@@ -140,6 +142,7 @@ describe('ExpenseService', () => {
     const expense = ExpenseService.buildExpense(
       'u',
       {
+        periodId: PERIOD_ID,
         accountType: AccountType.WHITE,
         category: Category.REFUNDS,
         originalAmount: 80,
@@ -155,6 +158,7 @@ describe('ExpenseService', () => {
     const created = ExpenseService.buildExpense(
       'u',
       {
+        periodId: PERIOD_ID,
         accountType: AccountType.WHITE,
         category: Category.REFUNDS,
         originalAmount: 40,
@@ -169,5 +173,45 @@ describe('ExpenseService', () => {
     )
     expect(updated.originalAmount).toBe(-25)
     expect(updated.usdAmount).toBe(-25)
+  })
+
+  it('rechaza moneda deshabilitada', () => {
+    const onlyArs = testSettings({ enabledCurrencies: [Currency.ARS] })
+    expect(() =>
+      ExpenseService.buildExpense(
+        'u',
+        {
+          periodId: PERIOD_ID,
+          accountType: AccountType.WHITE,
+          category: Category.SUPER,
+          originalAmount: 10,
+          originalCurrency: Currency.USD,
+        },
+        onlyArs,
+      ),
+    ).toThrow(/moneda/i)
+  })
+
+  it('en solo pesos registra sin conversión y cotización 1', () => {
+    const onlyArs = testSettings({
+      enabledCurrencies: [Currency.ARS],
+      usdWhite: 1500,
+      usdCash: 1400,
+    })
+    const expense = ExpenseService.buildExpense(
+      'u',
+      {
+        periodId: PERIOD_ID,
+        accountType: AccountType.WHITE,
+        category: Category.SUPER,
+        originalAmount: 2500,
+        originalCurrency: Currency.ARS,
+      },
+      onlyArs,
+    )
+    expect(expense.exchangeRate).toBe(1)
+    expect(expense.usdAmount).toBe(2500)
+    expect(expense.originalAmount).toBe(2500)
+    expect(expense.originalCurrency).toBe(Currency.ARS)
   })
 })

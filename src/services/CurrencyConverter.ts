@@ -11,14 +11,14 @@ export class CurrencyConverter {
     exchangeRate: number,
   ): number {
     if (currency === Currency.USD) {
-      return roundUsd(amount)
+      return this.roundMoney(amount)
     }
 
     if (currency === Currency.ARS) {
       if (exchangeRate <= 0) {
         throw new Error('La cotización debe ser mayor a cero')
       }
-      return roundUsd(amount / exchangeRate)
+      return this.roundMoney(amount / exchangeRate)
     }
 
     // Futuras monedas (EUR, GBP, etc.): agregar rama aquí.
@@ -32,8 +32,8 @@ export class CurrencyConverter {
     if (currency === Currency.USD) return 1
     return accountRate
   }
-}
 
-function roundUsd(value: number): number {
-  return Math.round(value * 100) / 100
+  static roundMoney(value: number): number {
+    return Math.round(value * 100) / 100
+  }
 }

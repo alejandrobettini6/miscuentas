@@ -1,6 +1,8 @@
 import type {
   CreateExpenseInput,
   Expense,
+  ImportAccountsPayload,
+  Period,
   Settings,
   UpdateExpenseInput,
   UpdateSettingsInput,
@@ -31,6 +33,17 @@ export interface SettingsRepository {
   update(userId: string, input: UpdateSettingsInput): Promise<Settings>
 }
 
+export interface PeriodRepository {
+  list(userId: string): Promise<Period[]>
+  getActive(userId: string): Promise<Period | null>
+  ensureActive(userId: string, monthlyLimit: number): Promise<Period>
+  /** Cierra el activo y abre el siguiente. */
+  closeAndOpenNext(userId: string, monthlyLimit: number): Promise<Period>
+  /** En modo automático: cierra el activo si el mes calendario cambió. */
+  rolloverIfNeeded(userId: string, monthlyLimit: number): Promise<Period>
+  replaceAll(userId: string, periods: Period[]): Promise<void>
+}
+
 export interface ExpenseRepository {
   list(userId: string): Promise<Expense[]>
   create(userId: string, input: CreateExpenseInput, settings: Settings): Promise<Expense>
@@ -41,5 +54,18 @@ export interface ExpenseRepository {
     settings: Settings,
   ): Promise<Expense>
   remove(userId: string, expenseId: string): Promise<void>
+  /** @deprecated Usar PeriodRepository.closeAndOpenNext */
   resetMonth(userId: string): Promise<void>
+  replaceAll(userId: string, expenses: Expense[]): Promise<void>
+}
+
+export interface ImportRepository {
+  replaceAll(userId: string, payload: NormalizedImportPayload): Promise<void>
+}
+
+export interface NormalizedImportPayload {
+  settings: Settings
+  periods: Period[]
+  expenses: Expense[]
+  source: ImportAccountsPayload
 }

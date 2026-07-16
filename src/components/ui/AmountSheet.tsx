@@ -9,6 +9,7 @@ interface AmountSheetProps {
   title: string
   initialAmount?: string
   initialCurrency?: Currency
+  enabledCurrencies?: Currency[]
   showCategoryName?: boolean
   /** Detalle opcional dentro de una categoría fija (no crea fila nueva). */
   showDetail?: boolean
@@ -25,6 +26,7 @@ export function AmountSheet({
   title,
   initialAmount = '',
   initialCurrency = Currency.USD,
+  enabledCurrencies = [Currency.USD, Currency.ARS],
   showCategoryName = false,
   showDetail = false,
   onSubmit,
@@ -52,12 +54,15 @@ export function AmountSheet({
           : formatAmountFromNumber(Number(initialAmount))
         : '',
     )
-    setCurrency(initialCurrency)
+    const safeCurrency = enabledCurrencies.includes(initialCurrency)
+      ? initialCurrency
+      : (enabledCurrencies[0] ?? Currency.USD)
+    setCurrency(safeCurrency)
     setCategoryName('')
     setDetail('')
     const timer = window.setTimeout(() => inputRef.current?.focus(), 50)
     return () => window.clearTimeout(timer)
-  }, [open, initialAmount, initialCurrency, showCategoryName, showDetail])
+  }, [open, initialAmount, initialCurrency, enabledCurrencies, showCategoryName, showDetail])
 
   if (!open) return null
 
@@ -66,7 +71,6 @@ export function AmountSheet({
 
     const parsed = parseAmountInput(amount)
     if (parsed === null) {
-      // Tap fuera con monto vacío: cierra sin registrar (comportamiento previo).
       if (options?.dismissIfEmpty && !amount.trim()) {
         cancelledRef.current = true
         onCancel()
@@ -105,32 +109,43 @@ export function AmountSheet({
     if (amountError) setAmountError(false)
   }
 
+  const showCurrencyToggle = enabledCurrencies.length > 1
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
       <div ref={panelRef} className="w-full max-w-md rounded-2xl bg-white p-5">
         <h2 className="mb-4 text-lg font-semibold">{title}</h2>
 
-        <div
-          className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-[#e5e5ea] p-1"
-          role="group"
-          aria-label="Moneda"
-        >
-          {[Currency.USD, Currency.ARS].map((item) => (
-            <button
-              key={item}
-              type="button"
-              aria-label={item}
-              aria-pressed={currency === item}
-              className={`min-h-11 rounded-lg font-semibold ${
-                currency === item ? 'bg-white shadow-sm' : 'text-[var(--muted)]'
-              }`}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => setCurrency(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
+        {showCurrencyToggle ? (
+          <div
+            className="mb-4 grid gap-1 rounded-xl bg-[#e5e5ea] p-1"
+            style={{
+              gridTemplateColumns: `repeat(${enabledCurrencies.length}, minmax(0, 1fr))`,
+            }}
+            role="group"
+            aria-label="Moneda"
+          >
+            {enabledCurrencies.map((item) => (
+              <button
+                key={item}
+                type="button"
+                aria-label={item}
+                aria-pressed={currency === item}
+                className={`min-h-11 rounded-lg font-semibold ${
+                  currency === item ? 'bg-white shadow-sm' : 'text-[var(--muted)]'
+                }`}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setCurrency(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="mb-4 text-center text-sm font-medium text-[var(--muted)]">
+            Moneda: {enabledCurrencies[0] ?? currency}
+          </p>
+        )}
 
         <label className="mb-4 block" htmlFor="amount-input">
           <span

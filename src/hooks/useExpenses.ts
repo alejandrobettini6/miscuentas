@@ -64,25 +64,16 @@ export function useExpenses() {
     onSuccess: invalidate,
   })
 
-  const resetMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error('No autenticado')
-      return repo.resetMonth(user.id)
-    },
-    onSuccess: invalidate,
-  })
-
   return {
     expenses: expensesQuery.data ?? [],
     isLoading: expensesQuery.isLoading,
     createExpense: createMutation.mutateAsync,
     updateExpense: updateMutation.mutateAsync,
     removeExpense: removeMutation.mutateAsync,
-    resetMonth: resetMutation.mutateAsync,
+    refresh: invalidate,
     isMutating:
       createMutation.isPending ||
       updateMutation.isPending ||
-      removeMutation.isPending ||
-      resetMutation.isPending,
+      removeMutation.isPending,
   }
 }

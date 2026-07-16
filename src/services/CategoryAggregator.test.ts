@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { FIXED_CATEGORIES } from '@/constants/categories'
 import { AccountType, Category, Currency } from '@/types/enums'
 import type { Expense } from '@/types/models'
 import { CategoryAggregator } from './CategoryAggregator'
@@ -7,6 +8,7 @@ function expense(partial: Partial<Expense>): Expense {
   return {
     id: crypto.randomUUID(),
     userId: 'u',
+    periodId: '11111111-1111-4111-8111-111111111111',
     accountType: AccountType.WHITE,
     category: Category.SUPER,
     description: null,
@@ -27,6 +29,37 @@ describe('CategoryAggregator', () => {
     expect(rows.some((r) => r.label === 'Impuestos' && r.totalUsd === 0)).toBe(true)
     expect(rows.some((r) => r.label === 'Devoluciones' && r.totalUsd === 0)).toBe(true)
     expect(rows.some((r) => r.label === 'Otros' && r.totalUsd === 0)).toBe(true)
+  })
+
+  it('oculta categorías fijas deshabilitadas', () => {
+    const rows = CategoryAggregator.buildRows([], AccountType.WHITE, [], [
+      Category.SUPER,
+      Category.DELIVERY,
+    ])
+    expect(rows.some((r) => r.label === 'Super')).toBe(true)
+    expect(rows.some((r) => r.label === 'Gym')).toBe(false)
+    expect(rows.some((r) => r.label === 'Otros')).toBe(true)
+  })
+
+  it('en modo ARS suma originalAmount de gastos en pesos', () => {
+    const expenses = [
+      expense({
+        category: Category.SUPER,
+        originalCurrency: Currency.ARS,
+        originalAmount: 5000,
+        exchangeRate: 1000,
+        usdAmount: 5,
+      }),
+    ]
+    const rows = CategoryAggregator.buildRows(
+      expenses,
+      AccountType.WHITE,
+      [],
+      FIXED_CATEGORIES,
+      Currency.ARS,
+    )
+    const superRow = rows.find((r) => r.label === 'Super')
+    expect(superRow?.totalUsd).toBe(5000)
   })
 
   it('acumula categorías personalizadas por nombre y ordena por monto', () => {
@@ -119,7 +152,7 @@ describe('CategoryAggregator', () => {
     expect(mascotas?.lastExpense).toBeNull()
   })
 
-  it('une gastos con categorías de settings sin duplicar', () => {
+  it('une gastos con categorías de settings sin duplicar y etiqueta Negro en totales', () => {
     const expenses = [
       expense({
         category: Category.OTHER,
