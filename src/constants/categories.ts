@@ -1,4 +1,4 @@
-import { AccountType, Category } from '@/types/enums'
+import { AccountType, Category, Currency, MonthMode } from '@/types/enums'
 
 export const FIXED_CATEGORIES: Category[] = [
   Category.SUPER,
@@ -33,7 +33,12 @@ export const CATEGORY_LABELS: Record<Category, string> = {
 
 export const ACCOUNT_LABELS: Record<AccountType, string> = {
   [AccountType.WHITE]: 'Blanco',
-  [AccountType.CASH]: 'Barrani',
+  [AccountType.CASH]: 'Negro',
+}
+
+export const CURRENCY_LABELS: Record<Currency, string> = {
+  [Currency.USD]: 'Dólares',
+  [Currency.ARS]: 'Pesos',
 }
 
 export const UNDO_WINDOW_MS = 15_000
@@ -43,4 +48,9 @@ export const DEFAULT_SETTINGS = {
   usdCash: 1,
   monthlyLimit: 1500,
   customCategories: [] as string[],
+  enabledAccounts: [AccountType.WHITE, AccountType.CASH] as AccountType[],
+  enabledCurrencies: [Currency.USD, Currency.ARS] as Currency[],
+  enabledFixedCategories: [...FIXED_CATEGORIES] as Category[],
+  monthMode: MonthMode.AUTOMATIC,
+  onboardingCompleted: false,
 } as const

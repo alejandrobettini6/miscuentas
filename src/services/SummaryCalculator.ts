@@ -1,10 +1,15 @@
-import { AccountType, BudgetColor } from '@/types/enums'
+import { AccountType, BudgetColor, Currency } from '@/types/enums'
 import type { Expense, MonthlySummary } from '@/types/models'
+import { accountingAmount } from './AccountingCurrency'
 
 export class SummaryCalculator {
-  static calculate(expenses: Expense[], monthlyLimit: number): MonthlySummary {
-    const totalWhite = sumByAccount(expenses, AccountType.WHITE)
-    const totalCash = sumByAccount(expenses, AccountType.CASH)
+  static calculate(
+    expenses: Expense[],
+    monthlyLimit: number,
+    accountingCurrency: Currency = Currency.USD,
+  ): MonthlySummary {
+    const totalWhite = sumByAccount(expenses, AccountType.WHITE, accountingCurrency)
+    const totalCash = sumByAccount(expenses, AccountType.CASH, accountingCurrency)
     const totalSpent = round(totalWhite + totalCash)
     const available = round(monthlyLimit - totalSpent)
     const remainingPercent =
@@ -32,11 +37,15 @@ export class SummaryCalculator {
   }
 }
 
-function sumByAccount(expenses: Expense[], account: AccountType): number {
+function sumByAccount(
+  expenses: Expense[],
+  account: AccountType,
+  accountingCurrency: Currency,
+): number {
   return round(
     expenses
       .filter((e) => e.accountType === account)
-      .reduce((acc, e) => acc + e.usdAmount, 0),
+      .reduce((acc, e) => acc + accountingAmount(e, accountingCurrency), 0),
   )
 }
 

@@ -7,6 +7,7 @@ function expense(partial: Partial<Expense> & Pick<Expense, 'accountType' | 'usdA
   return {
     id: '1',
     userId: 'u',
+    periodId: '11111111-1111-4111-8111-111111111111',
     category: Category.SUPER,
     description: null,
     originalCurrency: Currency.USD,
@@ -19,7 +20,7 @@ function expense(partial: Partial<Expense> & Pick<Expense, 'accountType' | 'usdA
 }
 
 describe('SummaryCalculator', () => {
-  it('suma blanco y barrani por separado y en total', () => {
+  it('suma blanco y negro por separado y en total', () => {
     const expenses = [
       expense({ accountType: AccountType.WHITE, usdAmount: 100 }),
       expense({ accountType: AccountType.CASH, usdAmount: 50 }),
@@ -30,6 +31,22 @@ describe('SummaryCalculator', () => {
     expect(summary.totalSpent).toBe(150)
     expect(summary.available).toBe(50)
     expect(summary.remainingPercent).toBe(25)
+  })
+
+  it('en modo solo ARS usa originalAmount de movimientos en pesos', () => {
+    const expenses = [
+      expense({
+        accountType: AccountType.WHITE,
+        originalCurrency: Currency.ARS,
+        originalAmount: 10000,
+        exchangeRate: 1000,
+        usdAmount: 10,
+      }),
+    ]
+    const summary = SummaryCalculator.calculate(expenses, 50000, Currency.ARS)
+    expect(summary.totalWhite).toBe(10000)
+    expect(summary.totalSpent).toBe(10000)
+    expect(summary.available).toBe(40000)
   })
 
   it('resuelve colores del indicador', () => {

@@ -13,9 +13,39 @@ const MONTH_NAMES = [
   'Diciembre',
 ]
 
-/** Etiqueta del mes actual (solo visual; el período dura hasta Reset Mes). */
+/** Clave YYYY-MM del mes calendario. */
+export function getYearMonthKey(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}`
+}
+
+/** Etiqueta legible a partir de YYYY-MM. */
+export function getMonthLabelFromKey(yearMonth: string): string {
+  const [yearRaw, monthRaw] = yearMonth.split('-')
+  const year = Number(yearRaw)
+  const month = Number(monthRaw)
+  if (!year || !month || month < 1 || month > 12) return yearMonth
+  return `${MONTH_NAMES[month - 1]} ${year}`
+}
+
+/** Siguiente YYYY-MM. */
+export function nextYearMonth(yearMonth: string): string {
+  const [yearRaw, monthRaw] = yearMonth.split('-')
+  let year = Number(yearRaw)
+  let month = Number(monthRaw)
+  if (!year || !month) return getYearMonthKey()
+  month += 1
+  if (month > 12) {
+    month = 1
+    year += 1
+  }
+  return `${year}-${String(month).padStart(2, '0')}`
+}
+
+/** Etiqueta del mes actual (calendario). */
 export function getCurrentMonthLabel(date = new Date()): string {
-  return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`
+  return getMonthLabelFromKey(getYearMonthKey(date))
 }
 
 export function formatDateParts(iso: string): { date: string; time: string } {

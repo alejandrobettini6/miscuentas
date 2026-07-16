@@ -1,9 +1,12 @@
 import { Eye, Pencil, Trash2 } from 'lucide-react'
+import { Currency } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel } from '@/types/models'
-import { formatLastMovementDelta, formatUsdLabel } from '@/utils/formatters'
+import { accountingAmount } from '@/services/AccountingCurrency'
+import { formatLastMovementDelta, formatMoneyLabel } from '@/utils/formatters'
 
 interface CategoryRowProps {
   row: CategoryRowModel
+  accountingCurrency?: Currency
   disabled?: boolean
   /** Categoría personalizada sin movimientos: el trash la elimina. */
   canRemoveCategory?: boolean
@@ -16,6 +19,7 @@ interface CategoryRowProps {
 
 export function CategoryRow({
   row,
+  accountingCurrency = Currency.USD,
   disabled,
   canRemoveCategory = false,
   onRegister,
@@ -27,6 +31,9 @@ export function CategoryRow({
   const hasLast = Boolean(row.lastExpense)
   const hasMovements = row.totalUsd !== 0 || hasLast
   const trashRemovesCategory = canRemoveCategory && !hasLast
+  const lastAmount = row.lastExpense
+    ? accountingAmount(row.lastExpense, accountingCurrency)
+    : 0
 
   return (
     <div className="flex items-center gap-2 border-b border-[var(--border)] py-3">
@@ -40,12 +47,12 @@ export function CategoryRow({
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-lg font-medium">{row.label}</span>
           <span className="text-lg font-semibold tabular-nums">
-            {formatUsdLabel(row.totalUsd)}
+            {formatMoneyLabel(row.totalUsd, accountingCurrency)}
           </span>
         </div>
         {row.lastExpense && (
           <div className="mt-1 text-sm text-[var(--muted)]">
-            {formatLastMovementDelta(row.lastExpense.usdAmount)}
+            {formatLastMovementDelta(lastAmount, accountingCurrency)}
           </div>
         )}
       </button>

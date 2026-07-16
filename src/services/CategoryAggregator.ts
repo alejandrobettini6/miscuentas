@@ -1,25 +1,30 @@
 import { CATEGORY_LABELS, FIXED_CATEGORIES } from '@/constants/categories'
-import { AccountType, Category } from '@/types/enums'
+import { AccountType, Category, Currency } from '@/types/enums'
 import type { CategoryRow, Expense } from '@/types/models'
+import { accountingAmount } from './AccountingCurrency'
 
 export class CategoryAggregator {
   static buildRows(
     expenses: Expense[],
     accountType: AccountType,
     customCategories: string[] = [],
+    enabledFixedCategories: Category[] = FIXED_CATEGORIES,
+    accountingCurrency: Currency = Currency.USD,
   ): CategoryRow[] {
     const accountExpenses = expenses.filter((e) => e.accountType === accountType)
     const rows: CategoryRow[] = []
+    const enabledFixed = new Set(enabledFixedCategories)
 
     for (const category of FIXED_CATEGORIES) {
+      if (!enabledFixed.has(category)) continue
       const items = accountExpenses.filter((e) => e.category === category)
-      rows.push(buildFixedRow(category, items))
+      rows.push(buildFixedRow(category, items, accountingCurrency))
     }
 
     const otherGeneral = accountExpenses.filter(
       (e) => e.category === Category.OTHER && !e.description,
     )
-    rows.push(buildFixedRow(Category.OTHER, otherGeneral))
+    rows.push(buildFixedRow(Category.OTHER, otherGeneral, accountingCurrency))
 
     const grandesMap = new Map<string, Expense[]>()
     for (const expense of accountExpenses) {
@@ -44,7 +49,9 @@ export class CategoryAggregator {
     for (const [key, items] of grandesMap.entries()) {
       const fromSettings = customCategories.find((c) => c.toLowerCase() === key)
       const label = items[0]?.description ?? fromSettings ?? key
-      const totalUsd = round(items.reduce((acc, e) => acc + e.usdAmount, 0))
+      const totalUsd = round(
+        items.reduce((acc, e) => acc + accountingAmount(e, accountingCurrency), 0),
+      )
       const lastExpense = latest(items)
       grandesRows.push({
         category: Category.OTHER,
@@ -74,22 +81,23 @@ export class CategoryAggregator {
       )
   }
 
-  /** Totales Blanco/Barrani de una categoría específica (ambas cuentas). */
+  /** Totales Blanco/Negro de una categoría específica (ambas cuentas). */
   static accountTotalsForRow(
     expenses: Expense[],
     row: Pick<CategoryRow, 'category' | 'description' | 'isOtrosGrande'>,
+    accountingCurrency: Currency = Currency.USD,
   ): { totalWhite: number; totalCash: number } {
     const matched = expenses.filter((e) => matchesRow(e, row))
     return {
       totalWhite: round(
         matched
           .filter((e) => e.accountType === AccountType.WHITE)
-          .reduce((acc, e) => acc + e.usdAmount, 0),
+          .reduce((acc, e) => acc + accountingAmount(e, accountingCurrency), 0),
       ),
       totalCash: round(
         matched
           .filter((e) => e.accountType === AccountType.CASH)
-          .reduce((acc, e) => acc + e.usdAmount, 0),
+          .reduce((acc, e) => acc + accountingAmount(e, accountingCurrency), 0),
       ),
     }
   }
@@ -116,12 +124,18 @@ function matchesRow(
   return true
 }
 
-function buildFixedRow(category: Category, items: Expense[]): CategoryRow {
+function buildFixedRow(
+  category: Category,
+  items: Expense[],
+  accountingCurrency: Currency,
+): CategoryRow {
   return {
     category,
     description: null,
     label: CATEGORY_LABELS[category],
-    totalUsd: round(items.reduce((acc, e) => acc + e.usdAmount, 0)),
+    totalUsd: round(
+      items.reduce((acc, e) => acc + accountingAmount(e, accountingCurrency), 0),
+    ),
     lastExpense: latest(items),
     isOtrosGrande: false,
   }

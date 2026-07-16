@@ -1,4 +1,4 @@
-import { AccountType, Category, type Currency } from '@/types/enums'
+import { AccountType, Category, Currency } from '@/types/enums'
 import type { CreateExpenseInput, Expense, Settings, UpdateExpenseInput } from '@/types/models'
 import { createId } from '@/utils/id'
 import {
@@ -6,6 +6,7 @@ import {
   isValidCustomCategoryName,
   normalizeCustomCategoryName,
 } from '@/validators/amount'
+import { resolveAccountingCurrency } from './AccountingCurrency'
 import { CurrencyConverter } from './CurrencyConverter'
 
 export class ExpenseService {
@@ -18,13 +19,29 @@ export class ExpenseService {
     if (!isValidAmount(input.originalAmount)) {
       throw new Error('El importe debe ser mayor a cero')
     }
+    if (!input.periodId) {
+      throw new Error('Período inválido')
+    }
+    if (!settings.enabledAccounts.includes(input.accountType)) {
+      throw new Error('La cuenta no está habilitada')
+    }
+    if (!settings.enabledCurrencies.includes(input.originalCurrency)) {
+      throw new Error('La moneda no está habilitada')
+    }
+    if (
+      input.category !== Category.OTHER &&
+      !settings.enabledFixedCategories.includes(input.category)
+    ) {
+      throw new Error('La categoría no está habilitada')
+    }
 
-    const exchangeRate = this.resolveRate(input.accountType, input.originalCurrency, settings)
-    let usdAmount = CurrencyConverter.convertToUsd(
-      input.originalAmount,
+    const { exchangeRate, accountingAmount: usdAmountRaw } = this.resolveAmounts(
+      input.accountType,
       input.originalCurrency,
-      exchangeRate,
+      input.originalAmount,
+      settings,
     )
+    let usdAmount = usdAmountRaw
     let originalAmount = input.originalAmount
 
     if (input.category === Category.REFUNDS) {
@@ -52,12 +69,14 @@ export class ExpenseService {
     return {
       id: createId(),
       userId,
+      periodId: input.periodId,
       accountType: input.accountType,
       category: input.category,
       description,
       originalCurrency: input.originalCurrency,
       originalAmount,
       exchangeRate,
+      // Con base ARS, usdAmount almacena pesos (importe contable).
       usdAmount,
       createdAt: iso,
       updatedAt: iso,
@@ -72,19 +91,17 @@ export class ExpenseService {
     if (!isValidAmount(input.originalAmount)) {
       throw new Error('El importe debe ser mayor a cero')
     }
+    if (!settings.enabledCurrencies.includes(input.originalCurrency)) {
+      throw new Error('La moneda no está habilitada')
+    }
 
-    // La cotización del movimiento se recalcula con la config actual solo al editar el importe.
-    // Los movimientos no editados conservan su cotización histórica.
-    const exchangeRate = this.resolveRate(
+    const { exchangeRate, accountingAmount: usdAmountRaw } = this.resolveAmounts(
       expense.accountType,
       input.originalCurrency,
+      input.originalAmount,
       settings,
     )
-    let usdAmount = CurrencyConverter.convertToUsd(
-      input.originalAmount,
-      input.originalCurrency,
-      exchangeRate,
-    )
+    let usdAmount = usdAmountRaw
     let originalAmount = input.originalAmount
 
     if (expense.category === Category.REFUNDS) {
@@ -103,11 +120,42 @@ export class ExpenseService {
     }
   }
 
+  /**
+   * Resuelve cotización e importe contable.
+   * Solo ARS: sin conversión (rate 1, amount = original).
+   * Base USD: convierte ARS→USD con la cotización de la cuenta.
+   */
+  static resolveAmounts(
+    accountType: AccountType,
+    currency: Currency,
+    amount: number,
+    settings: Settings,
+  ): { exchangeRate: number; accountingAmount: number } {
+    const accountingCurrency = resolveAccountingCurrency(settings)
+
+    if (accountingCurrency === Currency.ARS && currency === Currency.ARS) {
+      return {
+        exchangeRate: 1,
+        accountingAmount: CurrencyConverter.roundMoney(amount),
+      }
+    }
+
+    const exchangeRate = this.resolveRate(accountType, currency, settings)
+    return {
+      exchangeRate,
+      accountingAmount: CurrencyConverter.convertToUsd(amount, currency, exchangeRate),
+    }
+  }
+
   static resolveRate(
     accountType: AccountType,
     currency: Currency,
     settings: Settings,
   ): number {
+    const accountingCurrency = resolveAccountingCurrency(settings)
+    if (accountingCurrency === Currency.ARS && currency === Currency.ARS) {
+      return 1
+    }
     const accountRate =
       accountType === AccountType.WHITE ? settings.usdWhite : settings.usdCash
     return CurrencyConverter.resolveExchangeRate(currency, accountRate)

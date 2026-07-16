@@ -1,16 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { AccountType, Category, Currency } from '@/types/enums'
-import type { Expense, Settings } from '@/types/models'
+import type { Expense } from '@/types/models'
+import { PERIOD_ID, testSettings } from '@/test/fixtures'
 import { ExportService } from './ExportService'
 
-const settings: Settings = {
-  userId: 'u',
-  usdWhite: 1554,
-  usdCash: 1515,
-  monthlyLimit: 1500,
-  customCategories: [],
-  updatedAt: new Date().toISOString(),
-}
+const settings = testSettings({ usdWhite: 1554, usdCash: 1515 })
 
 function parseCsvLine(line: string): string[] {
   const fields: string[] = []
@@ -43,6 +37,7 @@ function parseCsvLine(line: string): string[] {
 const whiteArs: Expense = {
   id: '1',
   userId: 'u',
+  periodId: PERIOD_ID,
   accountType: AccountType.WHITE,
   category: Category.SUPER,
   description: null,
@@ -57,6 +52,7 @@ const whiteArs: Expense = {
 const cashUsd: Expense = {
   id: '2',
   userId: 'u',
+  periodId: PERIOD_ID,
   accountType: AccountType.CASH,
   category: Category.SALIDAS,
   description: null,
@@ -69,10 +65,10 @@ const cashUsd: Expense = {
 }
 
 describe('ExportService', () => {
-  it('genera CSV con cuatro columnas', () => {
+  it('genera CSV con cuatro columnas y etiqueta Negro', () => {
     const csv = ExportService.toCsv([whiteArs])
     const lines = csv.split('\n')
-    expect(lines[0]).toBe('Categoría Barrani,Monto Barrani,Categoría Blanco,Monto Blanco')
+    expect(lines[0]).toBe('Categoría Negro,Monto Negro,Categoría Blanco,Monto Blanco')
     expect(lines.some((line) => line.includes('Super') && line.includes('15,77'))).toBe(true)
   })
 
@@ -100,18 +96,19 @@ describe('ExportService', () => {
 
   it('en logs USD deja cotización vacía y no parte decimales', () => {
     const logs = ExportService.toLogs([cashUsd])
-    const cols = parseCsvLine(logs.split('\n')[1])
-    expect(cols).toHaveLength(10)
+    const cols = parseCsvLine(logs.split('\n')[1]!)
+    expect(cols).toHaveLength(11)
     expect(cols[6]).toBe('USD')
     expect(cols[7]).toBe('10,20')
     expect(cols[8]).toBe('')
     expect(cols[9]).toBe('10,20')
+    expect(cols[10]).toBe(PERIOD_ID)
   })
 
-  it('en logs ARS exporta cotización y 10 columnas sin corrimiento', () => {
+  it('en logs ARS exporta cotización y columnas sin corrimiento', () => {
     const logs = ExportService.toLogs([whiteArs])
-    const cols = parseCsvLine(logs.split('\n')[1])
-    expect(cols).toHaveLength(10)
+    const cols = parseCsvLine(logs.split('\n')[1]!)
+    expect(cols).toHaveLength(11)
     expect(cols[4]).toBe('Super')
     expect(cols[6]).toBe('ARS')
     expect(cols[7]).toBe('24.500')
@@ -119,10 +116,13 @@ describe('ExportService', () => {
     expect(cols[9]).toBe('15,77')
   })
 
-  it('exporta JSON restaurable sin auth', () => {
+  it('exporta JSON v2 restaurable sin auth', () => {
     const json = JSON.parse(ExportService.toJson([whiteArs], settings))
+    expect(json.version).toBe(2)
     expect(json.settings.monthlyLimit).toBe(1500)
+    expect(json.settings.enabledAccounts).toContain('WHITE')
     expect(json.expenses).toHaveLength(1)
     expect(json.expenses[0].id).toBe('1')
+    expect(json.expenses[0].periodId).toBe(PERIOD_ID)
   })
 })

@@ -1,4 +1,4 @@
-/** Contabilidades internas. UI: Blanco / Barrani */
+/** Contabilidades internas. UI: Blanco / Negro */
 export enum AccountType {
   WHITE = 'WHITE',
   CASH = 'CASH',
@@ -38,12 +38,24 @@ export enum BudgetColor {
   RED = 'RED',
 }
 
+export enum PeriodStatus {
+  ACTIVE = 'ACTIVE',
+  CLOSED = 'CLOSED',
+}
+
+/** Cómo avanza el mes: calendario automático o cierre manual. */
+export enum MonthMode {
+  AUTOMATIC = 'AUTOMATIC',
+  MANUAL = 'MANUAL',
+}
+
 export enum OfflineOperationType {
   CREATE_EXPENSE = 'CREATE_EXPENSE',
   UPDATE_EXPENSE = 'UPDATE_EXPENSE',
   DELETE_EXPENSE = 'DELETE_EXPENSE',
   UPDATE_SETTINGS = 'UPDATE_SETTINGS',
   RESET_MONTH = 'RESET_MONTH',
+  CLOSE_PERIOD = 'CLOSE_PERIOD',
 }
 
 export enum OfflineOperationStatus {

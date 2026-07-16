@@ -12,6 +12,7 @@ import type { ExpenseRepository } from '../interfaces'
 interface ExpenseRow {
   id: string
   user_id: string
+  period_id: string
   account_type: AccountType
   category: Category
   description: string | null
@@ -27,6 +28,7 @@ function mapRow(row: ExpenseRow): Expense {
   return {
     id: row.id,
     userId: row.user_id,
+    periodId: row.period_id,
     accountType: row.account_type,
     category: row.category,
     description: row.description,
@@ -43,6 +45,7 @@ function toRow(expense: Expense): ExpenseRow {
   return {
     id: expense.id,
     user_id: expense.userId,
+    period_id: expense.periodId,
     account_type: expense.accountType,
     category: expense.category,
     description: expense.description,
@@ -120,9 +123,24 @@ export class SupabaseExpenseRepository implements ExpenseRepository {
     if (error) throw error
   }
 
-  async resetMonth(userId: string): Promise<void> {
+  async resetMonth(_userId: string): Promise<void> {
+    // Conservamos el historial: el cierre se hace vía PeriodRepository.
+    void _userId
+  }
+
+  async replaceAll(userId: string, expenses: Expense[]): Promise<void> {
     const supabase = getSupabaseClient()
-    const { error } = await supabase.from('expenses').delete().eq('user_id', userId)
+    const { error: deleteError } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('user_id', userId)
+    if (deleteError) throw deleteError
+
+    if (expenses.length === 0) return
+
+    const { error } = await supabase
+      .from('expenses')
+      .insert(expenses.map((e) => toRow({ ...e, userId })))
     if (error) throw error
   }
 }

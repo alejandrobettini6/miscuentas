@@ -1,17 +1,30 @@
 import { ACCOUNT_LABELS, CATEGORY_LABELS, FIXED_CATEGORIES } from '@/constants/categories'
 import { AccountType, Category, Currency } from '@/types/enums'
-import type { Expense, Settings } from '@/types/models'
+import type { Expense, Period, Settings } from '@/types/models'
 import { formatDateParts } from '@/utils/date'
 import { formatUsd } from '@/utils/formatters'
 import { CategoryAggregator } from './CategoryAggregator'
 
 export class ExportService {
-  static toCsv(expenses: Expense[]): string {
-    const whiteRows = CategoryAggregator.buildRows(expenses, AccountType.WHITE)
-    const cashRows = CategoryAggregator.buildRows(expenses, AccountType.CASH)
+  static toCsv(
+    expenses: Expense[],
+    options?: { enabledAccounts?: AccountType[]; customCategories?: string[] },
+  ): string {
+    const customCategories = options?.customCategories ?? []
+    const enabled = new Set(
+      options?.enabledAccounts ?? [AccountType.WHITE, AccountType.CASH],
+    )
+    const whiteRows = enabled.has(AccountType.WHITE)
+      ? CategoryAggregator.buildRows(expenses, AccountType.WHITE, customCategories)
+      : []
+    const cashRows = enabled.has(AccountType.CASH)
+      ? CategoryAggregator.buildRows(expenses, AccountType.CASH, customCategories)
+      : []
     const max = Math.max(whiteRows.length, cashRows.length, 1)
 
-    const lines = ['Categoría Barrani,Monto Barrani,Categoría Blanco,Monto Blanco']
+    const lines = [
+      `Categoría ${ACCOUNT_LABELS[AccountType.CASH]},Monto ${ACCOUNT_LABELS[AccountType.CASH]},Categoría ${ACCOUNT_LABELS[AccountType.WHITE]},Monto ${ACCOUNT_LABELS[AccountType.WHITE]}`,
+    ]
 
     for (let i = 0; i < max; i++) {
       const cash = cashRows[i]
@@ -41,6 +54,7 @@ export class ExportService {
       'Importe Original',
       'Cotización',
       'USD Convertido',
+      'Periodo',
     ].join(',')
 
     const sorted = [...expenses].sort(
@@ -69,28 +83,48 @@ export class ExportService {
         escapeCsv(formatUsd(expense.originalAmount)),
         cotizacion,
         escapeCsv(formatUsd(expense.usdAmount)),
+        expense.periodId,
       ].join(',')
     })
 
     return [header, ...rows].join('\n')
   }
 
-  static toJson(expenses: Expense[], settings: Settings): string {
+  static toJson(
+    expenses: Expense[],
+    settings: Settings,
+    periods: Period[] = [],
+  ): string {
     const payload = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       settings: {
         usdWhite: settings.usdWhite,
         usdCash: settings.usdCash,
         monthlyLimit: settings.monthlyLimit,
         customCategories: settings.customCategories,
+        enabledAccounts: settings.enabledAccounts,
+        enabledCurrencies: settings.enabledCurrencies,
+        enabledFixedCategories: settings.enabledFixedCategories,
+        monthMode: settings.monthMode,
+        onboardingCompleted: settings.onboardingCompleted,
       },
       categories: [
         ...FIXED_CATEGORIES.map((c) => CATEGORY_LABELS[c]),
         ...settings.customCategories,
       ],
+      periods: periods.map((p) => ({
+        id: p.id,
+        label: p.label,
+        yearMonth: p.yearMonth,
+        status: p.status,
+        startedAt: p.startedAt,
+        closedAt: p.closedAt,
+        monthlyLimitSnapshot: p.monthlyLimitSnapshot,
+      })),
       expenses: expenses.map((e) => ({
         id: e.id,
+        periodId: e.periodId,
         accountType: e.accountType,
         category: e.category,
         description: e.description,
