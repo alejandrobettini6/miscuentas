@@ -18,6 +18,8 @@ interface SettingsRow {
   enabled_currencies?: string[] | null
   enabled_fixed_categories?: string[] | null
   month_mode?: string | null
+  accounting_currency?: string | null
+  summary_display_mode?: string | null
   onboarding_completed?: boolean | null
   updated_at: string
 }
@@ -34,6 +36,8 @@ function mapRow(row: SettingsRow): Settings {
       enabledCurrencies: row.enabled_currencies as Settings['enabledCurrencies'],
       enabledFixedCategories: row.enabled_fixed_categories as Settings['enabledFixedCategories'],
       monthMode: (row.month_mode as MonthMode | null) ?? MonthMode.AUTOMATIC,
+      accountingCurrency: row.accounting_currency as Settings['accountingCurrency'],
+      summaryDisplayMode: row.summary_display_mode as Settings['summaryDisplayMode'],
       onboardingCompleted: Boolean(row.onboarding_completed),
       updatedAt: row.updated_at,
     },
@@ -52,6 +56,8 @@ function toRow(settings: Settings) {
     enabled_currencies: settings.enabledCurrencies,
     enabled_fixed_categories: settings.enabledFixedCategories,
     month_mode: settings.monthMode,
+    accounting_currency: settings.accountingCurrency,
+    summary_display_mode: settings.summaryDisplayMode,
     onboarding_completed: settings.onboardingCompleted,
     updated_at: settings.updatedAt,
   }

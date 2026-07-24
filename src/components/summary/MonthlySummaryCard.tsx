@@ -1,5 +1,5 @@
 import { ACCOUNT_LABELS } from '@/constants/categories'
-import { AccountType, BudgetColor, Currency } from '@/types/enums'
+import { AccountType, BudgetColor, Currency, SummaryDisplayMode } from '@/types/enums'
 import type { MonthlySummary } from '@/types/models'
 import { formatMoneyLabel, formatPercent } from '@/utils/formatters'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -17,6 +17,7 @@ interface MonthlySummaryCardProps {
   progress: number
   enabledAccounts?: AccountType[]
   accountingCurrency?: Currency
+  displayMode?: SummaryDisplayMode
 }
 
 export function MonthlySummaryCard({
@@ -25,7 +26,42 @@ export function MonthlySummaryCard({
   progress,
   enabledAccounts = [AccountType.WHITE, AccountType.CASH],
   accountingCurrency = Currency.USD,
+  displayMode = SummaryDisplayMode.LIMIT,
 }: MonthlySummaryCardProps) {
+  const showAccountBreakdown = enabledAccounts.length === 2
+
+  if (displayMode === SummaryDisplayMode.TOTAL) {
+    return (
+      <section className="rounded-2xl bg-white p-5">
+        <p className="text-sm text-[var(--muted)]">Total gastado este mes</p>
+        <p className="mt-1 text-4xl font-bold tabular-nums text-[var(--text)]">
+          {formatMoneyLabel(summary.totalSpent, accountingCurrency)}
+        </p>
+
+        {showAccountBreakdown && (
+          <div className="mt-4 space-y-1 text-sm text-[var(--muted)]">
+            {enabledAccounts.includes(AccountType.WHITE) && (
+              <p>
+                {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
+                <span className="font-semibold text-[var(--text)]">
+                  {formatMoneyLabel(summary.totalWhite, accountingCurrency)}
+                </span>
+              </p>
+            )}
+            {enabledAccounts.includes(AccountType.CASH) && (
+              <p>
+                {ACCOUNT_LABELS[AccountType.CASH]}{' '}
+                <span className="font-semibold text-[var(--text)]">
+                  {formatMoneyLabel(summary.totalCash, accountingCurrency)}
+                </span>
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+    )
+  }
+
   return (
     <section className="rounded-2xl bg-white p-5">
       <p className="text-sm text-[var(--muted)]">Disponible este mes</p>
@@ -48,24 +84,26 @@ export function MonthlySummaryCard({
         </span>
       </p>
 
-      <div className="mt-2 space-y-1 text-sm text-[var(--muted)]">
-        {enabledAccounts.includes(AccountType.WHITE) && (
-          <p>
-            {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
-            <span className="font-semibold text-[var(--text)]">
-              {formatMoneyLabel(summary.totalWhite, accountingCurrency)}
-            </span>
-          </p>
-        )}
-        {enabledAccounts.includes(AccountType.CASH) && (
-          <p>
-            {ACCOUNT_LABELS[AccountType.CASH]}{' '}
-            <span className="font-semibold text-[var(--text)]">
-              {formatMoneyLabel(summary.totalCash, accountingCurrency)}
-            </span>
-          </p>
-        )}
-      </div>
+      {enabledAccounts.length > 0 && (
+        <div className="mt-2 space-y-1 text-sm text-[var(--muted)]">
+          {enabledAccounts.includes(AccountType.WHITE) && (
+            <p>
+              {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
+              <span className="font-semibold text-[var(--text)]">
+                {formatMoneyLabel(summary.totalWhite, accountingCurrency)}
+              </span>
+            </p>
+          )}
+          {enabledAccounts.includes(AccountType.CASH) && (
+            <p>
+              {ACCOUNT_LABELS[AccountType.CASH]}{' '}
+              <span className="font-semibold text-[var(--text)]">
+                {formatMoneyLabel(summary.totalCash, accountingCurrency)}
+              </span>
+            </p>
+          )}
+        </div>
+      )}
     </section>
   )
 }

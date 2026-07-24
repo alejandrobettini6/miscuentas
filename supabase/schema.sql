@@ -21,6 +21,7 @@ create type public.category_type as enum (
 );
 create type public.period_status as enum ('ACTIVE', 'CLOSED');
 create type public.month_mode as enum ('AUTOMATIC', 'MANUAL');
+create type public.summary_display_mode as enum ('LIMIT', 'TOTAL');
 
 -- Settings (una fila por usuario)
 create table public.settings (
@@ -35,6 +36,8 @@ create table public.settings (
     'SUPER','DELIVERY','AUTO','SALUD','SERVICIOS','NINA','SALIDAS','PELO','GYM','LIMPIEZA','TAXES','REFUNDS'
   ]::text[],
   month_mode public.month_mode not null default 'AUTOMATIC',
+  accounting_currency public.currency_type not null default 'USD',
+  summary_display_mode public.summary_display_mode not null default 'LIMIT',
   onboarding_completed boolean not null default false,
   updated_at timestamptz not null default now()
 );
@@ -203,6 +206,8 @@ begin
     enabled_currencies,
     enabled_fixed_categories,
     month_mode,
+    accounting_currency,
+    summary_display_mode,
     onboarding_completed,
     updated_at
   ) values (
@@ -227,6 +232,8 @@ begin
       '{}'::text[]
     ),
     coalesce((settings_json->>'monthMode')::public.month_mode, 'AUTOMATIC'),
+    coalesce((settings_json->>'accountingCurrency')::public.currency_type, 'USD'),
+    coalesce((settings_json->>'summaryDisplayMode')::public.summary_display_mode, 'LIMIT'),
     coalesce((settings_json->>'onboardingCompleted')::boolean, true),
     now()
   )
@@ -239,6 +246,8 @@ begin
     enabled_currencies = excluded.enabled_currencies,
     enabled_fixed_categories = excluded.enabled_fixed_categories,
     month_mode = excluded.month_mode,
+    accounting_currency = excluded.accounting_currency,
+    summary_display_mode = excluded.summary_display_mode,
     onboarding_completed = excluded.onboarding_completed,
     updated_at = excluded.updated_at;
 

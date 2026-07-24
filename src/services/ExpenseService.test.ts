@@ -214,4 +214,25 @@ describe('ExpenseService', () => {
     expect(expense.originalAmount).toBe(2500)
     expect(expense.originalCurrency).toBe(Currency.ARS)
   })
+
+  it('con base ARS convierte USD a pesos', () => {
+    const arsBase = testSettings({
+      enabledCurrencies: [Currency.ARS, Currency.USD],
+      accountingCurrency: Currency.ARS,
+      usdWhite: 1000,
+    })
+    const expense = ExpenseService.buildExpense(
+      'u',
+      {
+        periodId: PERIOD_ID,
+        accountType: AccountType.WHITE,
+        category: Category.SUPER,
+        originalAmount: 15,
+        originalCurrency: Currency.USD,
+      },
+      arsBase,
+    )
+    expect(expense.exchangeRate).toBe(1000)
+    expect(expense.usdAmount).toBe(15000)
+  })
 })

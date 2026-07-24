@@ -122,8 +122,8 @@ export class ExpenseService {
 
   /**
    * Resuelve cotización e importe contable.
-   * Solo ARS: sin conversión (rate 1, amount = original).
-   * Base USD: convierte ARS→USD con la cotización de la cuenta.
+   * Base USD: ARS → amount/rate; USD igual.
+   * Base ARS: USD → amount*rate; ARS igual.
    */
   static resolveAmounts(
     accountType: AccountType,
@@ -132,18 +132,28 @@ export class ExpenseService {
     settings: Settings,
   ): { exchangeRate: number; accountingAmount: number } {
     const accountingCurrency = resolveAccountingCurrency(settings)
+    const accountRate =
+      accountType === AccountType.WHITE ? settings.usdWhite : settings.usdCash
 
-    if (accountingCurrency === Currency.ARS && currency === Currency.ARS) {
+    if (currency === accountingCurrency) {
       return {
         exchangeRate: 1,
         accountingAmount: CurrencyConverter.roundMoney(amount),
       }
     }
 
-    const exchangeRate = this.resolveRate(accountType, currency, settings)
+    if (accountRate <= 0) {
+      throw new Error('La cotización debe ser mayor a cero')
+    }
+
     return {
-      exchangeRate,
-      accountingAmount: CurrencyConverter.convertToUsd(amount, currency, exchangeRate),
+      exchangeRate: accountRate,
+      accountingAmount: CurrencyConverter.convertToAccounting(
+        amount,
+        currency,
+        accountingCurrency,
+        accountRate,
+      ),
     }
   }
 
@@ -153,11 +163,11 @@ export class ExpenseService {
     settings: Settings,
   ): number {
     const accountingCurrency = resolveAccountingCurrency(settings)
-    if (accountingCurrency === Currency.ARS && currency === Currency.ARS) {
+    if (currency === accountingCurrency) {
       return 1
     }
     const accountRate =
       accountType === AccountType.WHITE ? settings.usdWhite : settings.usdCash
-    return CurrencyConverter.resolveExchangeRate(currency, accountRate)
+    return accountRate
   }
 }

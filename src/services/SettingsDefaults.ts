@@ -1,11 +1,18 @@
 import { DEFAULT_SETTINGS, FIXED_CATEGORIES } from '@/constants/categories'
-import { AccountType, Category, Currency, MonthMode } from '@/types/enums'
+import {
+  AccountType,
+  Category,
+  Currency,
+  MonthMode,
+  SummaryDisplayMode,
+} from '@/types/enums'
 import type { Settings, UpdateSettingsInput } from '@/types/models'
 
 const ACCOUNT_VALUES = new Set<string>(Object.values(AccountType))
 const CURRENCY_VALUES = new Set<string>(Object.values(Currency))
 const FIXED_SET = new Set<Category>(FIXED_CATEGORIES)
 const MONTH_MODE_VALUES = new Set<string>(Object.values(MonthMode))
+const SUMMARY_MODE_VALUES = new Set<string>(Object.values(SummaryDisplayMode))
 
 export function normalizeEnabledAccounts(raw: unknown): AccountType[] {
   const list = Array.isArray(raw)
@@ -40,6 +47,35 @@ export function normalizeMonthMode(raw: unknown): MonthMode {
   return MonthMode.AUTOMATIC
 }
 
+export function normalizeSummaryDisplayMode(raw: unknown): SummaryDisplayMode {
+  if (typeof raw === 'string' && SUMMARY_MODE_VALUES.has(raw)) {
+    return raw as SummaryDisplayMode
+  }
+  return SummaryDisplayMode.LIMIT
+}
+
+export function normalizeAccountingCurrency(
+  raw: unknown,
+  enabledCurrencies?: Currency[],
+): Currency {
+  const currencies =
+    enabledCurrencies && enabledCurrencies.length > 0
+      ? enabledCurrencies
+      : [...DEFAULT_SETTINGS.enabledCurrencies]
+
+  if (currencies.length === 1) {
+    return currencies[0]
+  }
+
+  if (typeof raw === 'string' && CURRENCY_VALUES.has(raw)) {
+    const currency = raw as Currency
+    if (currencies.includes(currency)) return currency
+  }
+
+  if (currencies.includes(Currency.USD)) return Currency.USD
+  return currencies[0] ?? Currency.USD
+}
+
 export function createDefaultSettings(userId: string, now = new Date()): Settings {
   return {
     userId,
@@ -51,13 +87,19 @@ export function createDefaultSettings(userId: string, now = new Date()): Setting
     enabledCurrencies: [...DEFAULT_SETTINGS.enabledCurrencies],
     enabledFixedCategories: [...DEFAULT_SETTINGS.enabledFixedCategories],
     monthMode: DEFAULT_SETTINGS.monthMode,
+    accountingCurrency: DEFAULT_SETTINGS.accountingCurrency,
+    summaryDisplayMode: DEFAULT_SETTINGS.summaryDisplayMode,
     onboardingCompleted: DEFAULT_SETTINGS.onboardingCompleted,
     updatedAt: now.toISOString(),
   }
 }
 
 /** Compatibilidad con settings antiguas / filas incompletas. */
-export function normalizeSettings(raw: Partial<Settings> & { userId?: string }, userId: string): Settings {
+export function normalizeSettings(
+  raw: Partial<Settings> & { userId?: string },
+  userId: string,
+): Settings {
+  const enabledCurrencies = normalizeEnabledCurrencies(raw.enabledCurrencies)
   return {
     userId: raw.userId ?? userId,
     usdWhite: Number(raw.usdWhite ?? DEFAULT_SETTINGS.usdWhite),
@@ -65,15 +107,23 @@ export function normalizeSettings(raw: Partial<Settings> & { userId?: string }, 
     monthlyLimit: Number(raw.monthlyLimit ?? DEFAULT_SETTINGS.monthlyLimit),
     customCategories: Array.isArray(raw.customCategories) ? raw.customCategories : [],
     enabledAccounts: normalizeEnabledAccounts(raw.enabledAccounts),
-    enabledCurrencies: normalizeEnabledCurrencies(raw.enabledCurrencies),
+    enabledCurrencies,
     enabledFixedCategories: normalizeEnabledFixedCategories(raw.enabledFixedCategories),
     monthMode: normalizeMonthMode(raw.monthMode),
+    accountingCurrency: normalizeAccountingCurrency(
+      raw.accountingCurrency,
+      enabledCurrencies,
+    ),
+    summaryDisplayMode: normalizeSummaryDisplayMode(raw.summaryDisplayMode),
     onboardingCompleted: Boolean(raw.onboardingCompleted),
     updatedAt: raw.updatedAt ?? new Date().toISOString(),
   }
 }
 
-export function mergeSettingsUpdate(current: Settings, input: UpdateSettingsInput): Settings {
+export function mergeSettingsUpdate(
+  current: Settings,
+  input: UpdateSettingsInput,
+): Settings {
   let enabledAccounts = current.enabledAccounts
   if (input.enabledAccounts !== undefined) {
     const filtered = uniqueEnum(
@@ -96,6 +146,11 @@ export function mergeSettingsUpdate(current: Settings, input: UpdateSettingsInpu
     enabledCurrencies = filtered
   }
 
+  const accountingCurrency = normalizeAccountingCurrency(
+    input.accountingCurrency ?? current.accountingCurrency,
+    enabledCurrencies,
+  )
+
   return {
     ...current,
     usdWhite: input.usdWhite ?? current.usdWhite,
@@ -112,6 +167,11 @@ export function mergeSettingsUpdate(current: Settings, input: UpdateSettingsInpu
       input.monthMode !== undefined
         ? normalizeMonthMode(input.monthMode)
         : current.monthMode,
+    accountingCurrency,
+    summaryDisplayMode:
+      input.summaryDisplayMode !== undefined
+        ? normalizeSummaryDisplayMode(input.summaryDisplayMode)
+        : current.summaryDisplayMode,
     onboardingCompleted:
       input.onboardingCompleted !== undefined
         ? Boolean(input.onboardingCompleted)

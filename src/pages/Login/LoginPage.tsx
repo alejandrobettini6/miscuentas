@@ -126,6 +126,7 @@ export function LoginPage() {
           label="Password"
           name="password"
           type="password"
+          revealPassword
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}

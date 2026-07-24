@@ -4,19 +4,41 @@ import {
   CATEGORY_LABELS,
   CURRENCY_LABELS,
   FIXED_CATEGORIES,
+  MAX_FIXED_CATEGORIES,
 } from '@/constants/categories'
-import { AccountType, Category, Currency, MonthMode } from '@/types/enums'
+import {
+  AccountType,
+  Category,
+  Currency,
+  MonthMode,
+  SummaryDisplayMode,
+} from '@/types/enums'
 import type { Settings, UpdateSettingsInput } from '@/types/models'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
+import { AmountInput } from '@/components/ui/AmountInput'
+import { Input } from '@/components/ui/Input'
 import { ExportService } from '@/services/ExportService'
+import { normalizeAccountingCurrency } from '@/services/SettingsDefaults'
 import type { Expense, Period } from '@/types/models'
+import {
+  formatAmountFromNumber,
+  isValidCustomCategoryName,
+  isValidMonthlyLimit,
+  normalizeCustomCategoryName,
+  parseAmountInput,
+} from '@/validators/amount'
 
 export type OnboardingDraft = {
   enabledCurrencies: Currency[]
   enabledAccounts: AccountType[]
   monthMode: MonthMode
   enabledFixedCategories: Category[]
+  customCategories: string[]
+  accountingCurrency: Currency
+  summaryDisplayMode: SummaryDisplayMode
+  monthlyLimit: number | null
+  monthlyLimitInput: string
 }
 
 interface OnboardingWizardProps {
@@ -33,8 +55,11 @@ interface OnboardingWizardProps {
 type Step =
   | 'backup'
   | 'currency'
+  | 'accountingCurrency'
   | 'accounts'
   | 'month'
+  | 'summaryMode'
+  | 'monthlyLimit'
   | 'categories'
   | 'confirm'
 
@@ -55,24 +80,27 @@ export function OnboardingWizard({
   const [step, setStep] = useState<Step>(initialStep)
   const [backupSaved, setBackupSaved] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [draft, setDraft] = useState<OnboardingDraft>(() => ({
-    enabledCurrencies: [...settings.enabledCurrencies],
-    enabledAccounts: [...settings.enabledAccounts],
-    monthMode: MonthMode.MANUAL,
-    enabledFixedCategories: [...settings.enabledFixedCategories],
-  }))
+  const [newCategoryLabel, setNewCategoryLabel] = useState('')
+  const [categoryError, setCategoryError] = useState<string | null>(null)
+  const [draft, setDraft] = useState<OnboardingDraft>(() =>
+    draftFromSettings(settings),
+  )
 
   useEffect(() => {
     if (!open) return
     setStep(mode === 'reconfigure' && hasData ? 'backup' : 'currency')
     setBackupSaved(false)
-    setDraft({
-      enabledCurrencies: [...settings.enabledCurrencies],
-      enabledAccounts: [...settings.enabledAccounts],
-      monthMode: MonthMode.MANUAL,
-      enabledFixedCategories: [...settings.enabledFixedCategories],
-    })
+    setNewCategoryLabel('')
+    setCategoryError(null)
+    setDraft(draftFromSettings(settings))
   }, [open, mode, hasData, settings])
+
+  const bothCurrencies =
+    draft.enabledCurrencies.includes(Currency.ARS) &&
+    draft.enabledCurrencies.includes(Currency.USD)
+
+  const fixedCount =
+    draft.enabledFixedCategories.length + draft.customCategories.length
 
   const title = useMemo(() => {
     switch (step) {
@@ -80,10 +108,16 @@ export function OnboardingWizard({
         return 'Antes de reconfigurar'
       case 'currency':
         return 'Monedas'
+      case 'accountingCurrency':
+        return 'Moneda de expresión'
       case 'accounts':
         return 'Cuentas'
       case 'month':
         return 'Cambio de mes'
+      case 'summaryMode':
+        return 'Resumen principal'
+      case 'monthlyLimit':
+        return 'Límite mensual'
       case 'categories':
         return 'Categorías fijas'
       case 'confirm':
@@ -106,17 +140,46 @@ export function OnboardingWizard({
 
   const goNext = () => {
     if (step === 'backup') setStep('currency')
-    else if (step === 'currency') setStep('accounts')
+    else if (step === 'currency') {
+      if (bothCurrencies) setStep('accountingCurrency')
+      else {
+        setDraft((d) => ({
+          ...d,
+          accountingCurrency: normalizeAccountingCurrency(
+            d.enabledCurrencies[0],
+            d.enabledCurrencies,
+          ),
+        }))
+        setStep('accounts')
+      }
+    } else if (step === 'accountingCurrency') setStep('accounts')
     else if (step === 'accounts') setStep('month')
-    else if (step === 'month') setStep('categories')
+    else if (step === 'month') setStep('summaryMode')
+    else if (step === 'summaryMode') {
+      if (draft.summaryDisplayMode === SummaryDisplayMode.LIMIT) {
+        setStep('monthlyLimit')
+      } else {
+        setStep('categories')
+      }
+    } else if (step === 'monthlyLimit') setStep('categories')
     else if (step === 'categories') setStep('confirm')
   }
 
   const goBack = () => {
     if (step === 'confirm') setStep('categories')
-    else if (step === 'categories') setStep('month')
+    else if (step === 'categories') {
+      if (draft.summaryDisplayMode === SummaryDisplayMode.LIMIT) {
+        setStep('monthlyLimit')
+      } else {
+        setStep('summaryMode')
+      }
+    } else if (step === 'monthlyLimit') setStep('summaryMode')
+    else if (step === 'summaryMode') setStep('month')
     else if (step === 'month') setStep('accounts')
-    else if (step === 'accounts') setStep('currency')
+    else if (step === 'accounts') {
+      if (bothCurrencies) setStep('accountingCurrency')
+      else setStep('currency')
+    } else if (step === 'accountingCurrency') setStep('currency')
     else if (step === 'currency' && mode === 'reconfigure' && hasData) {
       setStep('backup')
     }
@@ -140,8 +203,70 @@ export function OnboardingWizard({
     }
   }
 
+  const addCustomFixedCategory = () => {
+    setCategoryError(null)
+    if (!isValidCustomCategoryName(newCategoryLabel)) {
+      setCategoryError('Nombre inválido (máx. 40 caracteres)')
+      return
+    }
+    const name = normalizeCustomCategoryName(newCategoryLabel)
+    const existsFixed = FIXED_CATEGORIES.some(
+      (c) => CATEGORY_LABELS[c].toLowerCase() === name.toLowerCase(),
+    )
+    const existsCustom = draft.customCategories.some(
+      (c) => c.toLowerCase() === name.toLowerCase(),
+    )
+    if (existsFixed || existsCustom) {
+      setCategoryError('Esa categoría ya existe')
+      return
+    }
+    if (fixedCount >= MAX_FIXED_CATEGORIES) {
+      setCategoryError(`Máximo ${MAX_FIXED_CATEGORIES} categorías fijas`)
+      return
+    }
+    setDraft((d) => ({
+      ...d,
+      customCategories: [...d.customCategories, name],
+    }))
+    setNewCategoryLabel('')
+  }
+
+  const removeCustomFixedCategory = (name: string) => {
+    setDraft((d) => ({
+      ...d,
+      customCategories: d.customCategories.filter((c) => c !== name),
+    }))
+  }
+
+  const toggleSuggestedCategory = (category: Category, checked: boolean) => {
+    setCategoryError(null)
+    if (!checked) {
+      setDraft((d) => ({
+        ...d,
+        enabledFixedCategories: d.enabledFixedCategories.filter(
+          (c) => c !== category,
+        ),
+      }))
+      return
+    }
+    if (fixedCount >= MAX_FIXED_CATEGORIES) {
+      setCategoryError(`Máximo ${MAX_FIXED_CATEGORIES} categorías fijas`)
+      return
+    }
+    setDraft((d) => ({
+      ...d,
+      enabledFixedCategories: [...d.enabledFixedCategories, category],
+    }))
+  }
+
   const currencyOk = draft.enabledCurrencies.length > 0
   const accountsOk = draft.enabledAccounts.length > 0
+  const limitParsed =
+    draft.monthlyLimitInput.trim() === ''
+      ? null
+      : parseAmountInput(draft.monthlyLimitInput)
+  const limitOk =
+    limitParsed !== null && isValidMonthlyLimit(limitParsed)
 
   return (
     <Modal open={open} title={title} onClose={onClose ?? (() => undefined)}>
@@ -191,7 +316,14 @@ export function OnboardingWizard({
           <CurrencyOptions
             value={draft.enabledCurrencies}
             onChange={(enabledCurrencies) =>
-              setDraft((d) => ({ ...d, enabledCurrencies }))
+              setDraft((d) => ({
+                ...d,
+                enabledCurrencies,
+                accountingCurrency: normalizeAccountingCurrency(
+                  d.accountingCurrency,
+                  enabledCurrencies,
+                ),
+              }))
             }
           />
           <WizardNav
@@ -200,6 +332,40 @@ export function OnboardingWizard({
             onBack={mode === 'reconfigure' && hasData ? goBack : undefined}
             onNext={goNext}
             nextDisabled={!currencyOk}
+            busy={busy}
+          />
+        </div>
+      )}
+
+      {step === 'accountingCurrency' && (
+        <div className="space-y-4">
+          <p className="text-[var(--muted)]">
+            ¿En qué moneda querés expresar los límites y los valores principales?
+            Si cargás un gasto en la otra moneda, se convierte al tipo de cambio.
+          </p>
+          <div className="space-y-2">
+            <OptionButton
+              selected={draft.accountingCurrency === Currency.USD}
+              onClick={() =>
+                setDraft((d) => ({ ...d, accountingCurrency: Currency.USD }))
+              }
+              label="Dólares (USD)"
+              hint="Todo se expresa en USD. Los pesos se cotizan y se restan en dólares."
+            />
+            <OptionButton
+              selected={draft.accountingCurrency === Currency.ARS}
+              onClick={() =>
+                setDraft((d) => ({ ...d, accountingCurrency: Currency.ARS }))
+              }
+              label="Pesos (ARS)"
+              hint="Todo se expresa en pesos. Los dólares se convierten al tipo de cambio."
+            />
+          </div>
+          <WizardNav
+            showSkip={mode === 'initial'}
+            onSkip={() => void handleSkip()}
+            onBack={goBack}
+            onNext={goNext}
             busy={busy}
           />
         </div>
@@ -262,13 +428,86 @@ export function OnboardingWizard({
         </div>
       )}
 
+      {step === 'summaryMode' && (
+        <div className="space-y-4">
+          <p className="text-[var(--muted)]">
+            ¿Querés usar un límite de gastos o preferís ver la suma de lo que vas
+            gastando como número principal?
+          </p>
+          <div className="space-y-2">
+            <OptionButton
+              selected={draft.summaryDisplayMode === SummaryDisplayMode.LIMIT}
+              onClick={() =>
+                setDraft((d) => ({
+                  ...d,
+                  summaryDisplayMode: SummaryDisplayMode.LIMIT,
+                }))
+              }
+              label="Usar límite de gastos"
+              hint="El número grande muestra cuánto te queda disponible del presupuesto."
+            />
+            <OptionButton
+              selected={draft.summaryDisplayMode === SummaryDisplayMode.TOTAL}
+              onClick={() =>
+                setDraft((d) => ({
+                  ...d,
+                  summaryDisplayMode: SummaryDisplayMode.TOTAL,
+                }))
+              }
+              label="Ver sumatoria de gastos"
+              hint="El número grande muestra el total gastado del mes."
+            />
+          </div>
+          <WizardNav
+            showSkip={mode === 'initial'}
+            onSkip={() => void handleSkip()}
+            onBack={goBack}
+            onNext={goNext}
+            busy={busy}
+          />
+        </div>
+      )}
+
+      {step === 'monthlyLimit' && (
+        <div className="space-y-4">
+          <p className="text-[var(--muted)]">
+            ¿Cuál es tu límite de gasto mensual
+            {draft.accountingCurrency === Currency.ARS ? ' en pesos' : ' en dólares'}?
+          </p>
+          <AmountInput
+            value={draft.monthlyLimitInput}
+            onChange={(monthlyLimitInput) =>
+              setDraft((d) => ({ ...d, monthlyLimitInput }))
+            }
+            aria-label="Límite mensual"
+          />
+          <WizardNav
+            showSkip={mode === 'initial'}
+            onSkip={() => void handleSkip()}
+            onBack={goBack}
+            onNext={() => {
+              const parsed = parseAmountInput(draft.monthlyLimitInput)
+              if (parsed === null || !isValidMonthlyLimit(parsed)) return
+              setDraft((d) => ({ ...d, monthlyLimit: parsed }))
+              goNext()
+            }}
+            nextDisabled={!limitOk}
+            busy={busy}
+          />
+        </div>
+      )}
+
       {step === 'categories' && (
         <div className="space-y-4">
           <p className="text-[var(--muted)]">
-            ¿Qué categorías fijas querés usar? Las desmarcadas quedan ocultas
-            (sin borrar movimientos).
+            Elegí categorías sugeridas o agregá las tuyas (máx.{' '}
+            {MAX_FIXED_CATEGORIES} fijas). Después podés sumar más desde el
+            inicio.
           </p>
-          <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl bg-[#f2f2f7] p-3">
+          <p className="text-sm text-[var(--muted)]">
+            {fixedCount} / {MAX_FIXED_CATEGORIES}
+          </p>
+          <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl bg-[#f2f2f7] p-3">
             {FIXED_CATEGORIES.map((category) => {
               const checked = draft.enabledFixedCategories.includes(category)
               return (
@@ -279,20 +518,50 @@ export function OnboardingWizard({
                   <input
                     type="checkbox"
                     checked={checked}
-                    onChange={() => {
-                      setDraft((d) => ({
-                        ...d,
-                        enabledFixedCategories: checked
-                          ? d.enabledFixedCategories.filter((c) => c !== category)
-                          : [...d.enabledFixedCategories, category],
-                      }))
-                    }}
+                    onChange={() => toggleSuggestedCategory(category, !checked)}
                   />
                   {CATEGORY_LABELS[category]}
                 </label>
               )
             })}
+            {draft.customCategories.map((name) => (
+              <div
+                key={name}
+                className="flex min-h-11 items-center justify-between gap-3 text-base"
+              >
+                <span>{name}</span>
+                <button
+                  type="button"
+                  className="text-sm text-[var(--red)]"
+                  onClick={() => removeCustomFixedCategory(name)}
+                >
+                  Quitar
+                </button>
+              </div>
+            ))}
           </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Input
+                label="Nueva categoría fija"
+                name="new-fixed-category"
+                value={newCategoryLabel}
+                onChange={(e) => setNewCategoryLabel(e.target.value)}
+                placeholder="Ej. Farmacia"
+              />
+            </div>
+            <Button
+              type="button"
+              className="mt-7 shrink-0"
+              onClick={addCustomFixedCategory}
+              disabled={fixedCount >= MAX_FIXED_CATEGORIES}
+            >
+              Agregar
+            </Button>
+          </div>
+          {categoryError && (
+            <p className="text-sm text-[var(--red)]">{categoryError}</p>
+          )}
           <WizardNav
             showSkip={mode === 'initial'}
             onSkip={() => void handleSkip()}
@@ -326,6 +595,12 @@ export function OnboardingWizard({
               Monedas:{' '}
               {draft.enabledCurrencies.map((c) => CURRENCY_LABELS[c]).join(', ')}
             </p>
+            {bothCurrencies && (
+              <p>
+                Expresión:{' '}
+                {draft.accountingCurrency === Currency.ARS ? 'Pesos' : 'Dólares'}
+              </p>
+            )}
             <p>
               Cuentas:{' '}
               {draft.enabledAccounts.map((a) => ACCOUNT_LABELS[a]).join(', ')}
@@ -335,8 +610,26 @@ export function OnboardingWizard({
               {draft.monthMode === MonthMode.MANUAL ? 'Manual' : 'Automático'}
             </p>
             <p>
-              Categorías fijas: {draft.enabledFixedCategories.length} de{' '}
-              {FIXED_CATEGORIES.length}
+              Resumen:{' '}
+              {draft.summaryDisplayMode === SummaryDisplayMode.LIMIT
+                ? 'Límite de gastos'
+                : 'Sumatoria de gastos'}
+            </p>
+            {draft.summaryDisplayMode === SummaryDisplayMode.LIMIT && (
+              <p>
+                Límite mensual:{' '}
+                {formatAmountFromNumber(
+                  draft.monthlyLimit ??
+                    parseAmountInput(draft.monthlyLimitInput) ??
+                    0,
+                )}{' '}
+                {draft.accountingCurrency}
+              </p>
+            )}
+            <p>
+              Categorías fijas: {fixedCount} (sugeridas{' '}
+              {draft.enabledFixedCategories.length} + propias{' '}
+              {draft.customCategories.length})
             </p>
           </div>
           <div className="flex gap-3">
@@ -363,12 +656,46 @@ export function OnboardingWizard({
   )
 }
 
+export function draftFromSettings(settings: Settings): OnboardingDraft {
+  return {
+    enabledCurrencies: [...settings.enabledCurrencies],
+    enabledAccounts: [...settings.enabledAccounts],
+    monthMode: MonthMode.MANUAL,
+    enabledFixedCategories: [...settings.enabledFixedCategories],
+    customCategories: [...settings.customCategories],
+    accountingCurrency: normalizeAccountingCurrency(
+      settings.accountingCurrency,
+      settings.enabledCurrencies,
+    ),
+    summaryDisplayMode: settings.summaryDisplayMode,
+    monthlyLimit: settings.monthlyLimit,
+    monthlyLimitInput:
+      settings.monthlyLimit > 0
+        ? formatAmountFromNumber(settings.monthlyLimit)
+        : '',
+  }
+}
+
 export function draftToSettingsInput(draft: OnboardingDraft): UpdateSettingsInput {
+  const monthlyLimit =
+    draft.summaryDisplayMode === SummaryDisplayMode.LIMIT
+      ? (draft.monthlyLimit ??
+        parseAmountInput(draft.monthlyLimitInput) ??
+        undefined)
+      : undefined
+
   return {
     enabledAccounts: draft.enabledAccounts,
     enabledCurrencies: draft.enabledCurrencies,
     enabledFixedCategories: draft.enabledFixedCategories,
+    customCategories: draft.customCategories,
     monthMode: draft.monthMode,
+    accountingCurrency: normalizeAccountingCurrency(
+      draft.accountingCurrency,
+      draft.enabledCurrencies,
+    ),
+    summaryDisplayMode: draft.summaryDisplayMode,
+    ...(monthlyLimit !== undefined ? { monthlyLimit } : {}),
     onboardingCompleted: true,
   }
 }

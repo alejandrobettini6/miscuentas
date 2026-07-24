@@ -26,7 +26,7 @@ import { usePeriods } from '@/hooks/usePeriods'
 import { useSummary } from '@/hooks/useSummary'
 import { CategoryAggregator } from '@/services/CategoryAggregator'
 import { VisibilityProjector } from '@/services/VisibilityProjector'
-import { AccountType, Category, Currency, MonthMode, PeriodStatus } from '@/types/enums'
+import { AccountType, Category, Currency, MonthMode, PeriodStatus, SummaryDisplayMode } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel, Expense } from '@/types/models'
 import { getErrorMessage } from '@/utils/errors'
 import {
@@ -369,7 +369,11 @@ export function HomePage() {
       enabledAccounts: [...DEFAULT_SETTINGS.enabledAccounts],
       enabledCurrencies: [...DEFAULT_SETTINGS.enabledCurrencies],
       enabledFixedCategories: [...DEFAULT_SETTINGS.enabledFixedCategories],
+      customCategories: [...DEFAULT_SETTINGS.customCategories],
       monthMode: MonthMode.AUTOMATIC,
+      accountingCurrency: DEFAULT_SETTINGS.accountingCurrency,
+      summaryDisplayMode: DEFAULT_SETTINGS.summaryDisplayMode,
+      monthlyLimit: DEFAULT_SETTINGS.monthlyLimit,
       onboardingCompleted: true,
     })
     setOnboardingOpen(false)
@@ -422,6 +426,7 @@ export function HomePage() {
         progress={progress}
         enabledAccounts={enabledAccounts}
         accountingCurrency={accountingCurrency}
+        displayMode={settings?.summaryDisplayMode ?? SummaryDisplayMode.LIMIT}
       />
 
       <div className="mt-4">

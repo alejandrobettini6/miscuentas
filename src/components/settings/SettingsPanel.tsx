@@ -13,7 +13,7 @@ import {
   shouldShowUsdCashRate,
   shouldShowUsdWhiteRate,
 } from '@/services/AccountingCurrency'
-import { AccountType, Category, Currency, MonthMode } from '@/types/enums'
+import { AccountType, Category, Currency, MonthMode, SummaryDisplayMode } from '@/types/enums'
 import { Button } from '@/components/ui/Button'
 import { Tooltip } from '@/components/ui/Tooltip'
 import toast from 'react-hot-toast'
@@ -103,6 +103,30 @@ export function SettingsPanel({
     }
   }
 
+  const setAccountingCurrency = async (accountingCurrency: Currency) => {
+    setBusy(true)
+    try {
+      await updateSettings({ accountingCurrency })
+      toast.success('Moneda de expresión actualizada')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'No se pudo guardar'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const setSummaryDisplayMode = async (summaryDisplayMode: SummaryDisplayMode) => {
+    setBusy(true)
+    try {
+      await updateSettings({ summaryDisplayMode })
+      toast.success('Resumen actualizado')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'No se pudo guardar'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40" onClick={onClose} />
@@ -147,16 +171,81 @@ export function SettingsPanel({
                 : ' No se usan cotizaciones USD con esta configuración.'}
             </p>
             {needsExchangeRates(settings) && (
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Se muestran:{' '}
-                {[
-                  shouldShowUsdWhiteRate(settings) ? 'USD Blanco' : null,
-                  shouldShowUsdCashRate(settings) ? 'USD Negro' : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || 'ninguna (habilitá una cuenta)'}
-              </p>
+              <>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Se muestran:{' '}
+                  {[
+                    shouldShowUsdWhiteRate(settings) ? 'USD Blanco' : null,
+                    shouldShowUsdCashRate(settings) ? 'USD Negro' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'ninguna (habilitá una cuenta)'}
+                </p>
+                <div className="mt-3 space-y-2 rounded-2xl bg-[#f2f2f7] p-3">
+                  <p className="text-sm font-medium">Expresar límites y totales en</p>
+                  <label className="flex min-h-11 items-center gap-3">
+                    <input
+                      type="radio"
+                      name="accounting-currency"
+                      disabled={busy}
+                      checked={
+                        resolveAccountingCurrency(settings) === Currency.USD
+                      }
+                      onChange={() => void setAccountingCurrency(Currency.USD)}
+                    />
+                    Dólares (USD)
+                  </label>
+                  <label className="flex min-h-11 items-center gap-3">
+                    <input
+                      type="radio"
+                      name="accounting-currency"
+                      disabled={busy}
+                      checked={
+                        resolveAccountingCurrency(settings) === Currency.ARS
+                      }
+                      onChange={() => void setAccountingCurrency(Currency.ARS)}
+                    />
+                    Pesos (ARS)
+                  </label>
+                </div>
+              </>
             )}
+          </section>
+
+          <section>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
+              Resumen principal
+            </h3>
+            <div className="space-y-2 rounded-2xl bg-[#f2f2f7] p-3">
+              <label className="flex min-h-11 items-center gap-3">
+                <input
+                  type="radio"
+                  name="summary-mode"
+                  disabled={busy}
+                  checked={
+                    settings.summaryDisplayMode === SummaryDisplayMode.LIMIT
+                  }
+                  onChange={() =>
+                    void setSummaryDisplayMode(SummaryDisplayMode.LIMIT)
+                  }
+                />
+                Usar límite de gastos
+              </label>
+              <label className="flex min-h-11 items-center gap-3">
+                <input
+                  type="radio"
+                  name="summary-mode"
+                  disabled={busy}
+                  checked={
+                    settings.summaryDisplayMode === SummaryDisplayMode.TOTAL
+                  }
+                  onChange={() =>
+                    void setSummaryDisplayMode(SummaryDisplayMode.TOTAL)
+                  }
+                />
+                Ver sumatoria de gastos
+              </label>
+            </div>
           </section>
 
           <section>

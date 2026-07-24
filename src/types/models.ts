@@ -6,6 +6,7 @@ import type {
   OfflineOperationStatus,
   OfflineOperationType,
   PeriodStatus,
+  SummaryDisplayMode,
 } from './enums'
 
 export interface User {
@@ -24,6 +25,9 @@ export interface Settings {
   enabledCurrencies: Currency[]
   enabledFixedCategories: Category[]
   monthMode: MonthMode
+  /** Moneda en la que se expresan límites y totales cuando hay ARS y USD. */
+  accountingCurrency: Currency
+  summaryDisplayMode: SummaryDisplayMode
   onboardingCompleted: boolean
   updatedAt: string
 }
@@ -104,6 +108,8 @@ export interface UpdateSettingsInput {
   enabledCurrencies?: Currency[]
   enabledFixedCategories?: Category[]
   monthMode?: MonthMode
+  accountingCurrency?: Currency
+  summaryDisplayMode?: SummaryDisplayMode
   onboardingCompleted?: boolean
 }
 
@@ -119,6 +125,8 @@ export interface ImportAccountsPayload {
     enabledCurrencies?: Currency[]
     enabledFixedCategories?: Category[]
     monthMode?: MonthMode
+    accountingCurrency?: Currency
+    summaryDisplayMode?: SummaryDisplayMode
     onboardingCompleted?: boolean
   }
   categories?: string[]

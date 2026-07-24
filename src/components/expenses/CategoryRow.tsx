@@ -1,4 +1,4 @@
-import { Eye, Pencil, Trash2 } from 'lucide-react'
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Currency } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel } from '@/types/models'
 import { accountingAmount } from '@/services/AccountingCurrency'
@@ -55,6 +55,16 @@ export function CategoryRow({
             {formatLastMovementDelta(lastAmount, accountingCurrency)}
           </div>
         )}
+      </button>
+
+      <button
+        type="button"
+        className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
+        aria-label={`Agregar gasto en ${row.label}`}
+        disabled={disabled}
+        onClick={onRegister}
+      >
+        <Plus size={20} />
       </button>
 
       <button
