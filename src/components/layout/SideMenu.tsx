@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '@/utils/errors'
-import { Currency, MonthMode } from '@/types/enums'
+import { Currency, MonthMode, SummaryDisplayMode } from '@/types/enums'
 
 interface SideMenuProps {
   open: boolean
@@ -69,6 +69,8 @@ export function SideMenu({
   const accountingCurrency = settings
     ? resolveAccountingCurrency(settings)
     : Currency.USD
+  const showMonthlyLimit =
+    settings?.summaryDisplayMode !== SummaryDisplayMode.TOTAL
   const monthlyLimitLabel =
     accountingCurrency === Currency.ARS
       ? 'Límite mensual (ARS)'
@@ -193,10 +195,12 @@ export function SideMenu({
             {showUsdCash && (
               <MenuButton label="USD Negro" onClick={() => openField('usdCash')} />
             )}
-            <MenuButton
-              label={monthlyLimitLabel}
-              onClick={() => openField('monthlyLimit')}
-            />
+            {showMonthlyLimit && (
+              <MenuButton
+                label={monthlyLimitLabel}
+                onClick={() => openField('monthlyLimit')}
+              />
+            )}
           </Section>
 
           <Section title="Datos">

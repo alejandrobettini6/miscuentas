@@ -14,6 +14,8 @@ export class SupabaseImportRepository implements ImportRepository {
         enabledCurrencies: payload.settings.enabledCurrencies,
         enabledFixedCategories: payload.settings.enabledFixedCategories,
         monthMode: payload.settings.monthMode,
+        accountingCurrency: payload.settings.accountingCurrency,
+        summaryDisplayMode: payload.settings.summaryDisplayMode,
         onboardingCompleted: payload.settings.onboardingCompleted,
       },
       periods: payload.periods.map((p) => ({

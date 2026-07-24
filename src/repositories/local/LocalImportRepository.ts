@@ -28,6 +28,8 @@ export class LocalImportRepository implements ImportRepository {
         enabledCurrencies: settings.enabledCurrencies,
         enabledFixedCategories: settings.enabledFixedCategories,
         monthMode: settings.monthMode,
+        accountingCurrency: settings.accountingCurrency,
+        summaryDisplayMode: settings.summaryDisplayMode,
         onboardingCompleted: settings.onboardingCompleted,
       })
       await this.periods.replaceAll(userId, periods)
@@ -42,6 +44,8 @@ export class LocalImportRepository implements ImportRepository {
         enabledCurrencies: previousSettings.enabledCurrencies,
         enabledFixedCategories: previousSettings.enabledFixedCategories,
         monthMode: previousSettings.monthMode,
+        accountingCurrency: previousSettings.accountingCurrency,
+        summaryDisplayMode: previousSettings.summaryDisplayMode,
         onboardingCompleted: previousSettings.onboardingCompleted,
       })
       await this.periods.replaceAll(userId, previousPeriods)

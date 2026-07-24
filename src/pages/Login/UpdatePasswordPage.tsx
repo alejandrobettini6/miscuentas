@@ -46,6 +46,7 @@ export function UpdatePasswordPage() {
           label="Nueva contraseña"
           name="password"
           type="password"
+          revealPassword
           autoComplete="new-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -55,6 +56,7 @@ export function UpdatePasswordPage() {
           label="Confirmar contraseña"
           name="confirm"
           type="password"
+          revealPassword
           autoComplete="new-password"
           value={confirm}
           onChange={(event) => setConfirm(event.target.value)}

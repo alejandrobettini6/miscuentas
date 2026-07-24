@@ -18,7 +18,7 @@ describe('AccountingCurrency', () => {
     ).toBe(Currency.ARS)
   })
 
-  it('resuelve USD con solo dólares o ambas monedas', () => {
+  it('resuelve USD con solo dólares o ambas monedas (default USD)', () => {
     expect(
       resolveAccountingCurrency(
         testSettings({ enabledCurrencies: [Currency.USD] }),
@@ -26,9 +26,23 @@ describe('AccountingCurrency', () => {
     ).toBe(Currency.USD)
     expect(
       resolveAccountingCurrency(
-        testSettings({ enabledCurrencies: [Currency.ARS, Currency.USD] }),
+        testSettings({
+          enabledCurrencies: [Currency.ARS, Currency.USD],
+          accountingCurrency: Currency.USD,
+        }),
       ),
     ).toBe(Currency.USD)
+  })
+
+  it('respeta accountingCurrency cuando hay ambas monedas', () => {
+    expect(
+      resolveAccountingCurrency(
+        testSettings({
+          enabledCurrencies: [Currency.ARS, Currency.USD],
+          accountingCurrency: Currency.ARS,
+        }),
+      ),
+    ).toBe(Currency.ARS)
   })
 
   it('usa originalAmount para ARS históricos en modo solo pesos', () => {

@@ -107,6 +107,8 @@ export class ExportService {
         enabledCurrencies: settings.enabledCurrencies,
         enabledFixedCategories: settings.enabledFixedCategories,
         monthMode: settings.monthMode,
+        accountingCurrency: settings.accountingCurrency,
+        summaryDisplayMode: settings.summaryDisplayMode,
         onboardingCompleted: settings.onboardingCompleted,
       },
       categories: [

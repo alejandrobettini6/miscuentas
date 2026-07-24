@@ -13,6 +13,8 @@ import {
   normalizeEnabledCurrencies,
   normalizeEnabledFixedCategories,
   normalizeMonthMode,
+  normalizeAccountingCurrency,
+  normalizeSummaryDisplayMode,
 } from './SettingsDefaults'
 import { PeriodService } from './PeriodService'
 import type { NormalizedImportPayload } from '@/repositories/interfaces'
@@ -90,6 +92,13 @@ export class ImportService {
         settingsRaw.enabledFixedCategories ?? FIXED_CATEGORIES,
       ),
       monthMode: normalizeMonthMode(settingsRaw.monthMode ?? MonthMode.AUTOMATIC),
+      accountingCurrency: normalizeAccountingCurrency(
+        settingsRaw.accountingCurrency,
+        normalizeEnabledCurrencies(settingsRaw.enabledCurrencies),
+      ),
+      summaryDisplayMode: normalizeSummaryDisplayMode(
+        settingsRaw.summaryDisplayMode,
+      ),
       onboardingCompleted: Boolean(
         settingsRaw.onboardingCompleted === undefined
           ? true

@@ -15,6 +15,8 @@ export function testSettings(partial: Partial<Settings> = {}): Settings {
     enabledCurrencies: [...DEFAULT_SETTINGS.enabledCurrencies],
     enabledFixedCategories: [...DEFAULT_SETTINGS.enabledFixedCategories],
     monthMode: DEFAULT_SETTINGS.monthMode,
+    accountingCurrency: DEFAULT_SETTINGS.accountingCurrency,
+    summaryDisplayMode: DEFAULT_SETTINGS.summaryDisplayMode,
     onboardingCompleted: true,
     updatedAt: new Date().toISOString(),
     ...partial,

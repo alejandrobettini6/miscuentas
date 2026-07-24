@@ -15,4 +15,25 @@ describe('CurrencyConverter', () => {
   it('redondea a 2 decimales', () => {
     expect(CurrencyConverter.convertToUsd(100, Currency.ARS, 3)).toBe(33.33)
   })
+
+  it('convierte a base ARS desde USD', () => {
+    expect(
+      CurrencyConverter.convertToAccounting(10, Currency.USD, Currency.ARS, 1000),
+    ).toBe(10000)
+  })
+
+  it('convierte a base USD desde ARS', () => {
+    expect(
+      CurrencyConverter.convertToAccounting(2000, Currency.ARS, Currency.USD, 1000),
+    ).toBe(2)
+  })
+
+  it('no convierte cuando moneda = moneda contable', () => {
+    expect(
+      CurrencyConverter.convertToAccounting(50, Currency.ARS, Currency.ARS, 1000),
+    ).toBe(50)
+    expect(
+      CurrencyConverter.convertToAccounting(50, Currency.USD, Currency.USD, 1000),
+    ).toBe(50)
+  })
 })

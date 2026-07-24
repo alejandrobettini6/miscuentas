@@ -1,4 +1,13 @@
-import { AccountType, Category, Currency, MonthMode } from '@/types/enums'
+import {
+  AccountType,
+  Category,
+  Currency,
+  MonthMode,
+  SummaryDisplayMode,
+} from '@/types/enums'
+
+/** Máximo de categorías fijas (sugerencias + propias) en onboarding. */
+export const MAX_FIXED_CATEGORIES = 20
 
 export const FIXED_CATEGORIES: Category[] = [
   Category.SUPER,
@@ -52,5 +61,7 @@ export const DEFAULT_SETTINGS = {
   enabledCurrencies: [Currency.USD, Currency.ARS] as Currency[],
   enabledFixedCategories: [...FIXED_CATEGORIES] as Category[],
   monthMode: MonthMode.AUTOMATIC,
+  accountingCurrency: Currency.USD,
+  summaryDisplayMode: SummaryDisplayMode.LIMIT,
   onboardingCompleted: false,
 } as const

@@ -49,6 +49,12 @@ export enum MonthMode {
   MANUAL = 'MANUAL',
 }
 
+/** Cómo se muestra el número principal del resumen mensual. */
+export enum SummaryDisplayMode {
+  LIMIT = 'LIMIT',
+  TOTAL = 'TOTAL',
+}
+
 export enum OfflineOperationType {
   CREATE_EXPENSE = 'CREATE_EXPENSE',
   UPDATE_EXPENSE = 'UPDATE_EXPENSE',

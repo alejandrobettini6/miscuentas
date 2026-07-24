@@ -3,18 +3,26 @@ import type { Expense, Settings } from '@/types/models'
 
 /**
  * Moneda contable derivada de la configuración del usuario.
- * - Solo ARS → los totales se expresan en pesos, sin conversión.
- * - Solo USD o ambas → base USD (comportamiento histórico).
+ * - 1 moneda habilitada → esa moneda.
+ * - Ambas → settings.accountingCurrency.
  */
 export function resolveAccountingCurrency(settings: Settings): Currency {
-  const onlyArs =
-    settings.enabledCurrencies.length === 1 &&
-    settings.enabledCurrencies[0] === Currency.ARS
-  return onlyArs ? Currency.ARS : Currency.USD
+  if (settings.enabledCurrencies.length === 1) {
+    return settings.enabledCurrencies[0]
+  }
+  if (settings.enabledCurrencies.includes(settings.accountingCurrency)) {
+    return settings.accountingCurrency
+  }
+  return settings.enabledCurrencies.includes(Currency.USD)
+    ? Currency.USD
+    : (settings.enabledCurrencies[0] ?? Currency.USD)
 }
 
 export function isArsOnlyMode(settings: Settings): boolean {
-  return resolveAccountingCurrency(settings) === Currency.ARS
+  return (
+    settings.enabledCurrencies.length === 1 &&
+    settings.enabledCurrencies[0] === Currency.ARS
+  )
 }
 
 export function isUsdOnlyMode(settings: Settings): boolean {
