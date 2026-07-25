@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Currency } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel } from '@/types/models'
@@ -10,14 +11,14 @@ interface CategoryRowProps {
   disabled?: boolean
   /** Categoría personalizada sin movimientos: el trash la elimina. */
   canRemoveCategory?: boolean
-  onRegister: () => void
-  onEdit: () => void
-  onDelete: () => void
-  onViewDetails: () => void
-  onRemoveCategory?: () => void
+  onRegister: (row: CategoryRowModel) => void
+  onEdit: (row: CategoryRowModel) => void
+  onDelete: (row: CategoryRowModel) => void
+  onViewDetails: (row: CategoryRowModel) => void
+  onRemoveCategory?: (row: CategoryRowModel) => void
 }
 
-export function CategoryRow({
+function CategoryRowComponent({
   row,
   accountingCurrency = Currency.USD,
   disabled,
@@ -36,11 +37,11 @@ export function CategoryRow({
     : 0
 
   return (
-    <div className="flex items-center gap-2 border-b border-[var(--border)] py-3">
+    <div className="flex items-center gap-1 border-b border-[var(--border)] py-3">
       <button
         type="button"
-        className="min-h-11 flex-1 rounded-xl px-1 text-left active:bg-black/5 disabled:opacity-50"
-        onClick={onRegister}
+        className="min-h-10 flex-1 rounded-xl px-1 text-left active:bg-[var(--press)] disabled:opacity-50"
+        onClick={() => onRegister(row)}
         disabled={disabled}
         aria-label={`Registrar en ${row.label}`}
       >
@@ -59,37 +60,37 @@ export function CategoryRow({
 
       <button
         type="button"
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
+        className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
         aria-label={`Agregar gasto en ${row.label}`}
         disabled={disabled}
-        onClick={onRegister}
+        onClick={() => onRegister(row)}
       >
-        <Plus size={20} />
+        <Plus size={18} />
       </button>
 
       <button
         type="button"
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
+        className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
         aria-label={`Ver detalles de ${row.label}`}
         disabled={disabled || !hasMovements}
-        onClick={onViewDetails}
+        onClick={() => onViewDetails(row)}
       >
-        <Eye size={20} />
+        <Eye size={18} />
       </button>
 
       <button
         type="button"
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
+        className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
         aria-label={`Editar último movimiento de ${row.label}`}
         disabled={disabled || !hasLast}
-        onClick={onEdit}
+        onClick={() => onEdit(row)}
       >
-        <Pencil size={20} />
+        <Pencil size={18} />
       </button>
 
       <button
         type="button"
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[var(--red)] disabled:opacity-30"
+        className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--red)] disabled:opacity-30"
         aria-label={
           trashRemovesCategory
             ? `Eliminar categoría ${row.label}`
@@ -98,14 +99,16 @@ export function CategoryRow({
         disabled={disabled || (!hasLast && !trashRemovesCategory)}
         onClick={() => {
           if (trashRemovesCategory) {
-            onRemoveCategory?.()
+            onRemoveCategory?.(row)
             return
           }
-          onDelete()
+          onDelete(row)
         }}
       >
-        <Trash2 size={20} />
+        <Trash2 size={18} />
       </button>
     </div>
   )
 }
+
+export const CategoryRow = memo(CategoryRowComponent)

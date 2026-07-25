@@ -24,20 +24,20 @@ export function Header({
   const canNext = index >= 0 && index < sorted.length - 1
 
   return (
-    <header className="flex items-center justify-between py-3">
+    <header className="flex items-center justify-between py-2">
       <button
         type="button"
-        className="flex min-h-11 min-w-11 items-center justify-center rounded-xl"
+        className="flex min-h-10 min-w-10 items-center justify-center rounded-xl"
         aria-label="Abrir menú"
         onClick={onOpenMenu}
       >
-        <Menu size={26} />
+        <Menu size={24} />
       </button>
 
       <div className="flex min-w-0 flex-1 items-center justify-center gap-1">
         <button
           type="button"
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-xl disabled:opacity-30"
+          className="flex min-h-10 min-w-10 items-center justify-center rounded-xl disabled:opacity-30"
           aria-label="Mes anterior"
           disabled={!canPrev}
           onClick={() => {
@@ -45,7 +45,7 @@ export function Header({
             if (prev) onSelectPeriod(prev.id)
           }}
         >
-          <ChevronLeft size={22} />
+          <ChevronLeft size={20} />
         </button>
 
         <div className="min-w-0 text-center">
@@ -59,7 +59,7 @@ export function Header({
 
         <button
           type="button"
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-xl disabled:opacity-30"
+          className="flex min-h-10 min-w-10 items-center justify-center rounded-xl disabled:opacity-30"
           aria-label="Mes siguiente"
           disabled={!canNext}
           onClick={() => {
@@ -67,11 +67,11 @@ export function Header({
             if (next) onSelectPeriod(next.id)
           }}
         >
-          <ChevronRight size={22} />
+          <ChevronRight size={20} />
         </button>
       </div>
 
-      <div className="min-w-11" aria-hidden="true" />
+      <div className="min-w-10" aria-hidden="true" />
     </header>
   )
 }

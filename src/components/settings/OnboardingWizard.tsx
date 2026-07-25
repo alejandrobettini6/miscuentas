@@ -13,7 +13,7 @@ import {
   MonthMode,
   SummaryDisplayMode,
 } from '@/types/enums'
-import type { Settings, UpdateSettingsInput } from '@/types/models'
+import type { Settings } from '@/types/models'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { AmountInput } from '@/components/ui/AmountInput'
@@ -28,18 +28,13 @@ import {
   normalizeCustomCategoryName,
   parseAmountInput,
 } from '@/validators/amount'
+import {
+  draftFromSettings,
+  type OnboardingDraft,
+} from './onboardingDraft'
 
-export type OnboardingDraft = {
-  enabledCurrencies: Currency[]
-  enabledAccounts: AccountType[]
-  monthMode: MonthMode
-  enabledFixedCategories: Category[]
-  customCategories: string[]
-  accountingCurrency: Currency
-  summaryDisplayMode: SummaryDisplayMode
-  monthlyLimit: number | null
-  monthlyLimitInput: string
-}
+export type { OnboardingDraft } from './onboardingDraft'
+export { draftFromSettings, draftToSettingsInput } from './onboardingDraft'
 
 interface OnboardingWizardProps {
   open: boolean
@@ -272,7 +267,7 @@ export function OnboardingWizard({
     <Modal open={open} title={title} onClose={onClose ?? (() => undefined)}>
       {step === 'backup' && (
         <div className="space-y-4">
-          <div className="rounded-xl border-2 border-[var(--red)] bg-[#ffe5e5] p-4 text-[var(--red)]">
+          <div className="rounded-xl border-2 border-[var(--red)] bg-[var(--danger-bg)] p-4 text-[var(--red)]">
             <p className="font-bold">Exportá y guardá tu JSON ahora</p>
             <p className="mt-2 text-sm">
               Reconfigurar puede ocultar datos o generar errores si importás otra
@@ -507,7 +502,7 @@ export function OnboardingWizard({
           <p className="text-sm text-[var(--muted)]">
             {fixedCount} / {MAX_FIXED_CATEGORIES}
           </p>
-          <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl bg-[#f2f2f7] p-3">
+          <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl bg-[var(--surface-2)] p-3">
             {FIXED_CATEGORIES.map((category) => {
               const checked = draft.enabledFixedCategories.includes(category)
               return (
@@ -574,7 +569,7 @@ export function OnboardingWizard({
 
       {step === 'confirm' && (
         <div className="space-y-4">
-          <div className="rounded-xl border-2 border-[var(--red)] bg-[#ffe5e5] p-4 text-[var(--red)]">
+          <div className="rounded-xl border-2 border-[var(--red)] bg-[var(--danger-bg)] p-4 text-[var(--red)]">
             <p className="text-lg font-bold">Atención</p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
               <li>
@@ -590,7 +585,7 @@ export function OnboardingWizard({
               </li>
             </ul>
           </div>
-          <div className="rounded-xl bg-[#f2f2f7] p-3 text-sm">
+          <div className="rounded-xl bg-[var(--surface-2)] p-3 text-sm">
             <p>
               Monedas:{' '}
               {draft.enabledCurrencies.map((c) => CURRENCY_LABELS[c]).join(', ')}
@@ -654,50 +649,6 @@ export function OnboardingWizard({
       )}
     </Modal>
   )
-}
-
-export function draftFromSettings(settings: Settings): OnboardingDraft {
-  return {
-    enabledCurrencies: [...settings.enabledCurrencies],
-    enabledAccounts: [...settings.enabledAccounts],
-    monthMode: MonthMode.MANUAL,
-    enabledFixedCategories: [...settings.enabledFixedCategories],
-    customCategories: [...settings.customCategories],
-    accountingCurrency: normalizeAccountingCurrency(
-      settings.accountingCurrency,
-      settings.enabledCurrencies,
-    ),
-    summaryDisplayMode: settings.summaryDisplayMode,
-    monthlyLimit: settings.monthlyLimit,
-    monthlyLimitInput:
-      settings.monthlyLimit > 0
-        ? formatAmountFromNumber(settings.monthlyLimit)
-        : '',
-  }
-}
-
-export function draftToSettingsInput(draft: OnboardingDraft): UpdateSettingsInput {
-  const monthlyLimit =
-    draft.summaryDisplayMode === SummaryDisplayMode.LIMIT
-      ? (draft.monthlyLimit ??
-        parseAmountInput(draft.monthlyLimitInput) ??
-        undefined)
-      : undefined
-
-  return {
-    enabledAccounts: draft.enabledAccounts,
-    enabledCurrencies: draft.enabledCurrencies,
-    enabledFixedCategories: draft.enabledFixedCategories,
-    customCategories: draft.customCategories,
-    monthMode: draft.monthMode,
-    accountingCurrency: normalizeAccountingCurrency(
-      draft.accountingCurrency,
-      draft.enabledCurrencies,
-    ),
-    summaryDisplayMode: draft.summaryDisplayMode,
-    ...(monthlyLimit !== undefined ? { monthlyLimit } : {}),
-    onboardingCompleted: true,
-  }
 }
 
 function WizardNav({
@@ -827,8 +778,8 @@ function OptionButton({
       onClick={onClick}
       className={`w-full rounded-xl border px-4 py-3 text-left ${
         selected
-          ? 'border-[var(--blue)] bg-[#e8f0fe]'
-          : 'border-[var(--border)] bg-white'
+          ? 'border-[var(--blue)] bg-[var(--info-bg)]'
+          : 'border-[var(--border)] bg-[var(--surface)]'
       }`}
     >
       <span className="font-semibold">{label}</span>

@@ -1,18 +1,36 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { AddCategoryRow } from '@/components/expenses/AddCategoryRow'
-import { CategoryDetailsModal } from '@/components/expenses/CategoryDetailsModal'
 import { CategoryRow } from '@/components/expenses/CategoryRow'
 import { Header } from '@/components/layout/Header'
 import { SideMenu } from '@/components/layout/SideMenu'
 import { UndoBar, createUndoDeadline } from '@/components/layout/UndoBar'
-import { ImportAccountsModal } from '@/components/settings/ImportAccountsModal'
 import {
   draftToSettingsInput,
-  OnboardingWizard,
   type OnboardingDraft,
-} from '@/components/settings/OnboardingWizard'
-import { SettingsPanel } from '@/components/settings/SettingsPanel'
+} from '@/components/settings/onboardingDraft'
+
+// Paneles y modales pesados: se cargan bajo demanda para acelerar el arranque.
+const CategoryDetailsModal = lazy(() =>
+  import('@/components/expenses/CategoryDetailsModal').then((m) => ({
+    default: m.CategoryDetailsModal,
+  })),
+)
+const ImportAccountsModal = lazy(() =>
+  import('@/components/settings/ImportAccountsModal').then((m) => ({
+    default: m.ImportAccountsModal,
+  })),
+)
+const OnboardingWizard = lazy(() =>
+  import('@/components/settings/OnboardingWizard').then((m) => ({
+    default: m.OnboardingWizard,
+  })),
+)
+const SettingsPanel = lazy(() =>
+  import('@/components/settings/SettingsPanel').then((m) => ({
+    default: m.SettingsPanel,
+  })),
+)
 import { MonthlySummaryCard } from '@/components/summary/MonthlySummaryCard'
 import { AmountSheet } from '@/components/ui/AmountSheet'
 import { Button } from '@/components/ui/Button'
@@ -123,10 +141,44 @@ export function HomePage() {
     accountType,
   )
 
-  const rowKey = (row: CategoryRowModel) =>
-    `${row.category}:${row.description ?? ''}`
+  const rowKey = useCallback(
+    (row: CategoryRowModel) => `${row.category}:${row.description ?? ''}`,
+    [],
+  )
 
   const locked = isMutating || isClosing || busyRowKey !== null || isReadOnly
+
+  const handleRegisterRow = useCallback(
+    (row: CategoryRowModel) => {
+      if (isReadOnly) return
+      setAmountMode({ type: 'create', row })
+    },
+    [isReadOnly],
+  )
+
+  const handleEditRow = useCallback(
+    (row: CategoryRowModel) => {
+      if (isReadOnly || !row.lastExpense) return
+      setAmountMode({ type: 'edit', row, expense: row.lastExpense })
+    },
+    [isReadOnly],
+  )
+
+  const handleDeleteRow = useCallback(
+    (row: CategoryRowModel) => {
+      if (isReadOnly || !row.lastExpense) return
+      setDeleteTarget(row.lastExpense)
+    },
+    [isReadOnly],
+  )
+
+  const handleViewDetailsRow = useCallback((row: CategoryRowModel) => {
+    setDetailsRow(row)
+  }, [])
+
+  const handleRemoveCategoryRow = useCallback((row: CategoryRowModel) => {
+    setRemoveCategoryTarget(row)
+  }, [])
 
   const detailsItems = useMemo(() => {
     if (!detailsRow) return []
@@ -405,17 +457,17 @@ export function HomePage() {
       />
 
       {!isOnline && (
-        <p className="mb-3 rounded-xl bg-[#fff3cd] px-3 py-2 text-sm text-[#856404]">
+        <p className="mb-3 rounded-xl bg-[var(--warn-bg)] px-3 py-2 text-sm text-[var(--warn-text)]">
           Sin conexión · los cambios quedan pendientes
         </p>
       )}
       {pendingCount > 0 && (
-        <p className="mb-3 rounded-xl bg-[#e8f0fe] px-3 py-2 text-sm text-[var(--blue)]">
+        <p className="mb-3 rounded-xl bg-[var(--info-bg)] px-3 py-2 text-sm text-[var(--blue)]">
           Pendiente de sincronización ({pendingCount})
         </p>
       )}
       {isReadOnly && (
-        <p className="mb-3 rounded-xl bg-[#f2f2f7] px-3 py-2 text-sm text-[var(--muted)]">
+        <p className="mb-3 rounded-xl bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--muted)]">
           Estás viendo un mes cerrado. Solo lectura.
         </p>
       )}
@@ -438,7 +490,7 @@ export function HomePage() {
         />
       </div>
 
-      <section className="mt-2 rounded-2xl bg-white px-3">
+      <section className="mt-2 rounded-2xl bg-[var(--surface)] px-3">
         {isLoading ? (
           <p className="py-8 text-center text-[var(--muted)]">Cargando…</p>
         ) : (
@@ -450,24 +502,11 @@ export function HomePage() {
                 accountingCurrency={accountingCurrency}
                 disabled={locked}
                 canRemoveCategory={canRemoveCustomCategory(row)}
-                onRegister={() => {
-                  if (isReadOnly) return
-                  setAmountMode({ type: 'create', row })
-                }}
-                onEdit={() => {
-                  if (isReadOnly || !row.lastExpense) return
-                  setAmountMode({
-                    type: 'edit',
-                    row,
-                    expense: row.lastExpense,
-                  })
-                }}
-                onDelete={() => {
-                  if (isReadOnly || !row.lastExpense) return
-                  setDeleteTarget(row.lastExpense)
-                }}
-                onViewDetails={() => setDetailsRow(row)}
-                onRemoveCategory={() => setRemoveCategoryTarget(row)}
+                onRegister={handleRegisterRow}
+                onEdit={handleEditRow}
+                onDelete={handleDeleteRow}
+                onViewDetails={handleViewDetailsRow}
+                onRemoveCategory={handleRemoveCategoryRow}
               />
             ))}
             {!isReadOnly && (
@@ -556,6 +595,7 @@ export function HomePage() {
         </div>
       </Modal>
 
+      <Suspense fallback={null}>
       <CategoryDetailsModal
         open={detailsRow !== null}
         row={detailsRow}
@@ -631,6 +671,7 @@ export function HomePage() {
           await refreshExpenses()
         }}
       />
+      </Suspense>
 
       {!isReadOnly && (
         <UndoBar

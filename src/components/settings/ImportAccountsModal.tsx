@@ -94,7 +94,7 @@ export function ImportAccountsModal({
       }}
     >
       <div className="space-y-4">
-        <div className="rounded-xl border-2 border-[var(--red)] bg-[#ffe5e5] p-4 text-[var(--red)]">
+        <div className="rounded-xl border-2 border-[var(--red)] bg-[var(--danger-bg)] p-4 text-[var(--red)]">
           <p className="font-bold">Reemplazo total</p>
           <p className="mt-2 text-sm">
             Un JSON válido reemplaza toda la información de la cuenta. Exportá un
@@ -124,7 +124,7 @@ export function ImportAccountsModal({
         />
 
         {errors.length > 0 && (
-          <div className="rounded-xl bg-[#ffe5e5] p-3 text-sm text-[var(--red)]">
+          <div className="rounded-xl bg-[var(--danger-bg)] p-3 text-sm text-[var(--red)]">
             <p className="font-semibold">Errores de validación</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               {errors.map((error) => (
@@ -135,7 +135,7 @@ export function ImportAccountsModal({
         )}
 
         {preview && (
-          <div className="rounded-xl bg-[#f2f2f7] p-3 text-sm">
+          <div className="rounded-xl bg-[var(--surface-2)] p-3 text-sm">
             <p className="font-semibold">Vista previa</p>
             <p>Versión: {preview.source.version}</p>
             <p>Períodos: {preview.periods.length}</p>

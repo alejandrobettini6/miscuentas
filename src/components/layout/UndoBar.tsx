@@ -44,7 +44,7 @@ export function UndoBar({ deadline, onUndo, onExpire }: UndoBarProps) {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center p-4">
-      <div className="flex w-full max-w-md items-center justify-between gap-3 rounded-2xl bg-[#1d1d1f] px-4 py-3 text-white shadow-lg">
+      <div className="flex w-full max-w-md items-center justify-between gap-3 rounded-2xl bg-[var(--toast-bg)] px-4 py-3 text-[var(--toast-text)] shadow-lg">
         <span className="text-sm">
           Movimiento registrado · {seconds}s
         </span>

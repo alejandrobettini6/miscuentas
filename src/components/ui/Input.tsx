@@ -28,7 +28,7 @@ export function Input({
         <input
           id={inputId}
           type={resolvedType}
-          className={`min-h-12 w-full rounded-xl border border-[var(--border)] bg-white px-4 text-lg outline-none focus:border-[var(--blue)] ${
+          className={`min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 text-lg outline-none focus:border-[var(--blue)] ${
             showToggle ? 'pr-12' : ''
           } ${className}`}
           {...props}

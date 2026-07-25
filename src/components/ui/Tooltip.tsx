@@ -11,7 +11,7 @@ export function Tooltip({ text, children }: TooltipProps) {
     <span className="group relative inline-flex items-center gap-1">
       {children}
       <span
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#e5e5ea] text-[11px] font-bold text-[var(--muted)]"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--fill)] text-[11px] font-bold text-[var(--muted)]"
         title={text}
         aria-label={text}
       >

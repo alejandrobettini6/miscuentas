@@ -34,7 +34,7 @@ export function GoogleSignInButton({ onClick, disabled, loading }: GoogleSignInB
       disabled={disabled || loading}
       onClick={onClick}
       aria-label="Continuar con Google"
-      className="flex min-h-11 w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3 font-medium text-[var(--text)] shadow-sm ring-1 ring-[var(--border)] transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+      className="flex min-h-10 w-full items-center justify-center gap-3 rounded-xl bg-[var(--surface)] px-4 py-2.5 font-medium text-[var(--text)] shadow-sm ring-1 ring-[var(--border)] transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
     >
       <GoogleIcon />
       {loading ? 'Redirigiendo…' : 'Continuar con Google'}

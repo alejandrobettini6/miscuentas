@@ -11,6 +11,17 @@ export default defineConfig({
     },
   },
   base: '/miscuentas/',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          supabase: ['@supabase/supabase-js'],
+          'react-query': ['@tanstack/react-query'],
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'node',

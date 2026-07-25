@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Settings, X } from 'lucide-react'
+import { Monitor, Moon, Settings, Sun, X } from 'lucide-react'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useSettingsContext } from '@/contexts/SettingsContext'
+import { useTheme, type ThemePreference } from '@/contexts/ThemeContext'
 import {
   resolveAccountingCurrency,
   shouldShowUsdCashRate,
@@ -51,6 +52,7 @@ export function SideMenu({
 }: SideMenuProps) {
   const { logout } = useAuthContext()
   const { settings, updateSettings } = useSettingsContext()
+  const { theme, setTheme } = useTheme()
   const [activeField, setActiveField] = useState<SettingField>(null)
   const [fieldValue, setFieldValue] = useState('')
   const [closeStep, setCloseStep] = useState<0 | 1 | 2>(0)
@@ -158,8 +160,8 @@ export function SideMenu({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <aside className="fixed inset-y-0 left-0 z-50 flex w-[min(100%,320px)] flex-col bg-white shadow-xl transition-transform">
+      <div className="fixed inset-0 z-40 bg-[var(--overlay)]" onClick={onClose} />
+      <aside className="fixed inset-y-0 left-0 z-50 flex w-[min(100%,320px)] flex-col bg-[var(--surface)] shadow-xl transition-transform">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h2 className="text-lg font-semibold">Menú</h2>
           <button
@@ -201,6 +203,12 @@ export function SideMenu({
                 onClick={() => openField('monthlyLimit')}
               />
             )}
+          </Section>
+
+          <Section title="Apariencia">
+            <div className="p-3">
+              <ThemeToggle value={theme} onChange={setTheme} />
+            </div>
           </Section>
 
           <Section title="Datos">
@@ -311,7 +319,7 @@ function Section({
       >
         {title}
       </h3>
-      <div className="overflow-hidden rounded-2xl bg-[#f2f2f7]">{children}</div>
+      <div className="overflow-hidden rounded-2xl bg-[var(--surface-2)]">{children}</div>
     </section>
   )
 }
@@ -330,7 +338,7 @@ function MenuButton({
   return (
     <button
       type="button"
-      className={`flex min-h-12 w-full items-center gap-2 border-b border-white/70 px-4 text-left text-base last:border-b-0 ${
+      className={`flex min-h-11 w-full items-center gap-2 border-b border-[var(--surface)] px-4 text-left text-sm last:border-b-0 ${
         danger ? 'font-semibold text-[var(--red)]' : 'text-[var(--text)]'
       }`}
       onClick={onClick}
@@ -339,5 +347,52 @@ function MenuButton({
       {icon}
       <span>{label}</span>
     </button>
+  )
+}
+
+const THEME_OPTIONS: {
+  value: ThemePreference
+  label: string
+  icon: ReactNode
+}[] = [
+  { value: 'light', label: 'Claro', icon: <Sun size={16} /> },
+  { value: 'dark', label: 'Oscuro', icon: <Moon size={16} /> },
+  { value: 'system', label: 'Auto', icon: <Monitor size={16} /> },
+]
+
+function ThemeToggle({
+  value,
+  onChange,
+}: {
+  value: ThemePreference
+  onChange: (theme: ThemePreference) => void
+}) {
+  return (
+    <div
+      className="grid grid-cols-3 gap-1 rounded-xl bg-[var(--fill)] p-1"
+      role="group"
+      aria-label="Tema"
+    >
+      {THEME_OPTIONS.map((option) => {
+        const active = value === option.value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={active}
+            aria-label={option.label}
+            className={`flex min-h-9 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold transition ${
+              active
+                ? 'bg-[var(--segment-active)] text-[var(--text)] shadow-sm'
+                : 'text-[var(--muted)]'
+            }`}
+            onClick={() => onChange(option.value)}
+          >
+            {option.icon}
+            <span>{option.label}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }

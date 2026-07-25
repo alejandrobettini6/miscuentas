@@ -129,8 +129,8 @@ export function SettingsPanel({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/40" onClick={onClose} />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-[min(100%,360px)] flex-col bg-white shadow-xl">
+      <div className="fixed inset-0 z-50 bg-[var(--overlay)]" onClick={onClose} />
+      <aside className="fixed inset-y-0 right-0 z-50 flex w-[min(100%,360px)] flex-col bg-[var(--surface)] shadow-xl">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h2 className="text-lg font-semibold">Configuración</h2>
           <button
@@ -150,7 +150,7 @@ export function SettingsPanel({
                 Monedas
               </h3>
             </Tooltip>
-            <div className="space-y-2 rounded-2xl bg-[#f2f2f7] p-3">
+            <div className="space-y-2 rounded-2xl bg-[var(--surface-2)] p-3">
               {[Currency.ARS, Currency.USD].map((currency) => (
                 <label key={currency} className="flex min-h-11 items-center gap-3">
                   <input
@@ -181,7 +181,7 @@ export function SettingsPanel({
                     .filter(Boolean)
                     .join(' · ') || 'ninguna (habilitá una cuenta)'}
                 </p>
-                <div className="mt-3 space-y-2 rounded-2xl bg-[#f2f2f7] p-3">
+                <div className="mt-3 space-y-2 rounded-2xl bg-[var(--surface-2)] p-3">
                   <p className="text-sm font-medium">Expresar límites y totales en</p>
                   <label className="flex min-h-11 items-center gap-3">
                     <input
@@ -216,7 +216,7 @@ export function SettingsPanel({
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
               Resumen principal
             </h3>
-            <div className="space-y-2 rounded-2xl bg-[#f2f2f7] p-3">
+            <div className="space-y-2 rounded-2xl bg-[var(--surface-2)] p-3">
               <label className="flex min-h-11 items-center gap-3">
                 <input
                   type="radio"
@@ -254,7 +254,7 @@ export function SettingsPanel({
                 Cuentas
               </h3>
             </Tooltip>
-            <div className="space-y-2 rounded-2xl bg-[#f2f2f7] p-3">
+            <div className="space-y-2 rounded-2xl bg-[var(--surface-2)] p-3">
               {[AccountType.WHITE, AccountType.CASH].map((account) => (
                 <label key={account} className="flex min-h-11 items-center gap-3">
                   <input
@@ -275,7 +275,7 @@ export function SettingsPanel({
                 Cambio de mes
               </h3>
             </Tooltip>
-            <div className="space-y-2 rounded-2xl bg-[#f2f2f7] p-3">
+            <div className="space-y-2 rounded-2xl bg-[var(--surface-2)] p-3">
               <label className="flex min-h-11 items-center gap-3">
                 <input
                   type="radio"
@@ -305,7 +305,7 @@ export function SettingsPanel({
                 Categorías fijas
               </h3>
             </Tooltip>
-            <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl bg-[#f2f2f7] p-3">
+            <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl bg-[var(--surface-2)] p-3">
               {FIXED_CATEGORIES.map((category) => (
                 <label key={category} className="flex min-h-11 items-center gap-3">
                   <input
