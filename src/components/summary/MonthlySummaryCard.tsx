@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ACCOUNT_LABELS } from '@/constants/categories'
 import { AccountType, BudgetColor, Currency, SummaryDisplayMode } from '@/types/enums'
 import type { MonthlySummary } from '@/types/models'
@@ -6,7 +7,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 
 const TEXT_COLORS: Record<BudgetColor, string> = {
   [BudgetColor.GREEN]: 'text-[var(--green)]',
-  [BudgetColor.YELLOW]: 'text-[#b58900]',
+  [BudgetColor.YELLOW]: 'text-[var(--yellow-text)]',
   [BudgetColor.ORANGE]: 'text-[var(--orange)]',
   [BudgetColor.RED]: 'text-[var(--red)]',
 }
@@ -20,7 +21,7 @@ interface MonthlySummaryCardProps {
   displayMode?: SummaryDisplayMode
 }
 
-export function MonthlySummaryCard({
+function MonthlySummaryCardComponent({
   summary,
   color,
   progress,
@@ -32,7 +33,7 @@ export function MonthlySummaryCard({
 
   if (displayMode === SummaryDisplayMode.TOTAL) {
     return (
-      <section className="rounded-2xl bg-white p-5">
+      <section className="rounded-2xl bg-[var(--surface)] p-5">
         <p className="text-sm text-[var(--muted)]">Total gastado este mes</p>
         <p className="mt-1 text-4xl font-bold tabular-nums text-[var(--text)]">
           {formatMoneyLabel(summary.totalSpent, accountingCurrency)}
@@ -63,7 +64,7 @@ export function MonthlySummaryCard({
   }
 
   return (
-    <section className="rounded-2xl bg-white p-5">
+    <section className="rounded-2xl bg-[var(--surface)] p-5">
       <p className="text-sm text-[var(--muted)]">Disponible este mes</p>
       <p className={`mt-1 text-4xl font-bold tabular-nums ${TEXT_COLORS[color]}`}>
         {formatMoneyLabel(summary.available, accountingCurrency)}
@@ -107,3 +108,5 @@ export function MonthlySummaryCard({
     </section>
   )
 }
+
+export const MonthlySummaryCard = memo(MonthlySummaryCardComponent)

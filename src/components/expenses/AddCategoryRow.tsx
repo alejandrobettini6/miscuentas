@@ -45,24 +45,24 @@ export function AddCategoryRow({ disabled, onAdd }: AddCategoryRowProps) {
 
   if (!editing) {
     return (
-      <div className="flex items-center gap-2 py-3">
+      <div className="flex items-center gap-1 py-3">
         <button
           type="button"
-          className="flex min-h-11 flex-1 items-center rounded-xl border border-dashed border-[var(--border)] px-3 text-left text-[var(--muted)] active:bg-black/5 disabled:opacity-50"
+          className="flex min-h-10 flex-1 items-center rounded-xl border border-dashed border-[var(--border)] px-3 text-left text-[var(--muted)] active:bg-[var(--press)] disabled:opacity-50"
           onClick={() => setEditing(true)}
           disabled={disabled}
           aria-label="Nueva categoría"
         >
-          <span className="text-lg">Nueva categoría</span>
+          <span className="text-base">Nueva categoría</span>
         </button>
         <button
           type="button"
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
+          className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
           aria-label="Agregar categoría"
           disabled={disabled}
           onClick={() => setEditing(true)}
         >
-          <Plus size={22} />
+          <Plus size={20} />
         </button>
       </div>
     )
@@ -70,7 +70,7 @@ export function AddCategoryRow({ disabled, onAdd }: AddCategoryRowProps) {
 
   return (
     <div className="py-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <input
           ref={inputRef}
           type="text"
@@ -80,7 +80,7 @@ export function AddCategoryRow({ disabled, onAdd }: AddCategoryRowProps) {
           placeholder="Nombre de la categoría"
           aria-label="Nombre de la categoría"
           aria-invalid={Boolean(error)}
-          className="min-h-11 flex-1 rounded-xl border border-dashed border-[var(--border)] px-3 text-base outline-none focus:border-[var(--blue)]"
+          className="min-h-10 flex-1 rounded-xl border border-dashed border-[var(--border)] px-3 text-base outline-none focus:border-[var(--blue)]"
           onChange={(event) => {
             setName(event.target.value)
             if (error) setError(null)
@@ -98,12 +98,12 @@ export function AddCategoryRow({ disabled, onAdd }: AddCategoryRowProps) {
         />
         <button
           type="button"
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
+          className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
           aria-label="Confirmar categoría"
           disabled={busy || disabled}
           onClick={() => void submit()}
         >
-          <Plus size={22} />
+          <Plus size={20} />
         </button>
       </div>
       {error && (

@@ -112,13 +112,13 @@ export function AmountSheet({
   const showCurrencyToggle = enabledCurrencies.length > 1
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
-      <div ref={panelRef} className="w-full max-w-md rounded-2xl bg-white p-5">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-[var(--overlay)] p-4">
+      <div ref={panelRef} className="w-full max-w-md rounded-2xl bg-[var(--surface)] p-5">
         <h2 className="mb-4 text-lg font-semibold">{title}</h2>
 
         {showCurrencyToggle ? (
           <div
-            className="mb-4 grid gap-1 rounded-xl bg-[#e5e5ea] p-1"
+            className="mb-4 grid gap-1 rounded-xl bg-[var(--fill)] p-1"
             style={{
               gridTemplateColumns: `repeat(${enabledCurrencies.length}, minmax(0, 1fr))`,
             }}
@@ -131,8 +131,10 @@ export function AmountSheet({
                 type="button"
                 aria-label={item}
                 aria-pressed={currency === item}
-                className={`min-h-11 rounded-lg font-semibold ${
-                  currency === item ? 'bg-white shadow-sm' : 'text-[var(--muted)]'
+                className={`min-h-10 rounded-lg font-semibold ${
+                  currency === item
+                    ? 'bg-[var(--segment-active)] text-[var(--text)] shadow-sm'
+                    : 'text-[var(--muted)]'
                 }`}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setCurrency(item)}

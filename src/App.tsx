@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext'
 import { SettingsProvider } from '@/contexts/SettingsContext'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import { HomePage } from '@/pages/Home/HomePage'
 import { LoginPage } from '@/pages/Login/LoginPage'
 import { UpdatePasswordPage } from '@/pages/Login/UpdatePasswordPage'
@@ -9,9 +10,11 @@ import { UpdatePasswordPage } from '@/pages/Login/UpdatePasswordPage'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5_000,
+      // Datos propios del usuario: evitamos refetch/re-render innecesarios.
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
       retry: 1,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false,
     },
   },
 })
@@ -36,30 +39,32 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <SettingsProvider>
-          <AppRoutes />
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              duration: 2000,
-              success: {
-                style: {
-                  background: '#34c759',
-                  color: '#fff',
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <SettingsProvider>
+            <AppRoutes />
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                duration: 2000,
+                success: {
+                  style: {
+                    background: '#34c759',
+                    color: '#fff',
+                  },
                 },
-              },
-              error: {
-                style: {
-                  background: '#ff3b30',
-                  color: '#fff',
+                error: {
+                  style: {
+                    background: '#ff3b30',
+                    color: '#fff',
+                  },
                 },
-              },
-            }}
-          />
-        </SettingsProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+              }}
+            />
+          </SettingsProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }

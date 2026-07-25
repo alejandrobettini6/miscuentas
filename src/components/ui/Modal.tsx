@@ -12,14 +12,14 @@ export function Modal({ open, title, children, onClose }: ModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
       role="dialog"
       aria-modal="true"
       aria-label={title}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white p-5 shadow-lg"
+        className="w-full max-w-md rounded-2xl bg-[var(--surface)] p-5 shadow-lg"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="mb-4 text-xl font-semibold">{title}</h2>

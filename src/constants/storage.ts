@@ -4,4 +4,5 @@ export const STORAGE_KEYS = {
   EXPENSES: 'miscuentas:expenses',
   PERIODS: 'miscuentas:periods',
   OFFLINE_QUEUE: 'miscuentas:offline_queue',
+  THEME: 'miscuentas:theme',
 } as const

@@ -17,7 +17,7 @@ export function ProgressBar({ ratio, color }: ProgressBarProps) {
 
   return (
     <div
-      className="h-3 w-full overflow-hidden rounded-full bg-[#e5e5ea]"
+      className="h-3 w-full overflow-hidden rounded-full bg-[var(--fill)]"
       role="progressbar"
       aria-valuenow={Math.round(ratio * 100)}
       aria-valuemin={0}
