@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useBackButtonClose } from '@/hooks/useBackButtonClose'
 import { Currency } from '@/types/enums'
 import { formatAmountFromNumber, parseAmountInput } from '@/validators/amount'
 import { AmountInput } from './AmountInput'
@@ -63,6 +64,11 @@ export function AmountSheet({
     const timer = window.setTimeout(() => inputRef.current?.focus(), 50)
     return () => window.clearTimeout(timer)
   }, [open, initialAmount, initialCurrency, enabledCurrencies, showCategoryName, showDetail])
+
+  useBackButtonClose(open, () => {
+    cancelledRef.current = true
+    onCancel()
+  })
 
   if (!open) return null
 

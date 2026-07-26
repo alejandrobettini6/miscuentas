@@ -37,6 +37,17 @@ export function usePeriods() {
     },
   })
 
+  const advanceMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !settings) throw new Error('No autenticado')
+      return repo.createNextPeriod(user.id, settings.monthlyLimit)
+    },
+    onSuccess: async () => {
+      // No toca gastos: solo agrega/reactiva un período futuro sin cerrar el actual.
+      await queryClient.invalidateQueries({ queryKey: ['periods', userId] })
+    },
+  })
+
   const periods = periodsQuery.data ?? []
   const activePeriod =
     periods.find((p) => p.status === PeriodStatus.ACTIVE) ?? null
@@ -47,6 +58,8 @@ export function usePeriods() {
     isLoading: periodsQuery.isLoading,
     closePeriod: closeMutation.mutateAsync,
     isClosing: closeMutation.isPending,
+    advanceNextPeriod: advanceMutation.mutateAsync,
+    isAdvancing: advanceMutation.isPending,
     refresh: () =>
       queryClient.invalidateQueries({ queryKey: ['periods', userId] }),
   }

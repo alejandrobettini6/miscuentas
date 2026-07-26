@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Currency } from '@/types/enums'
 import {
+  formatCsvAmount,
   formatLastMovementDelta,
   formatMoneyLabel,
   formatUsd,
@@ -23,5 +24,14 @@ describe('formatMoneyLabel', () => {
   it('formatea delta del último movimiento según moneda', () => {
     expect(formatLastMovementDelta(25, Currency.ARS)).toBe('(+$ 25)')
     expect(formatLastMovementDelta(-10, Currency.USD)).toBe('(-10)')
+  })
+})
+
+describe('formatCsvAmount', () => {
+  it('no usa separador de miles y siempre deja 2 decimales', () => {
+    expect(formatCsvAmount(100000)).toBe('100000.00')
+    expect(formatCsvAmount(1250.5)).toBe('1250.50')
+    expect(formatCsvAmount(25)).toBe('25.00')
+    expect(formatCsvAmount(-10.2)).toBe('-10.20')
   })
 })

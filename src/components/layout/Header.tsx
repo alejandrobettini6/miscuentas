@@ -8,6 +8,9 @@ interface HeaderProps {
   selectedPeriodId: string | null
   onSelectPeriod: (periodId: string) => void
   readOnly?: boolean
+  /** Al tocar "›" estando en el último período existente: ofrece crear el siguiente. */
+  onRequestNextPeriod?: () => void
+  advancingPeriod?: boolean
 }
 
 export function Header({
@@ -16,12 +19,17 @@ export function Header({
   selectedPeriodId,
   onSelectPeriod,
   readOnly = false,
+  onRequestNextPeriod,
+  advancingPeriod = false,
 }: HeaderProps) {
   const sorted = [...periods].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth))
   const index = sorted.findIndex((p) => p.id === selectedPeriodId)
   const current = index >= 0 ? sorted[index] : null
   const canPrev = index > 0
-  const canNext = index >= 0 && index < sorted.length - 1
+  const hasNext = index >= 0 && index < sorted.length - 1
+  const isAtLast = index >= 0 && index === sorted.length - 1
+  const canAdvance = isAtLast && Boolean(onRequestNextPeriod)
+  const canNext = hasNext || canAdvance
 
   return (
     <header className="flex items-center justify-between py-2">
@@ -60,11 +68,15 @@ export function Header({
         <button
           type="button"
           className="flex min-h-10 min-w-10 items-center justify-center rounded-xl disabled:opacity-30"
-          aria-label="Mes siguiente"
-          disabled={!canNext}
+          aria-label={hasNext ? 'Mes siguiente' : 'Adelantar mes'}
+          disabled={!canNext || advancingPeriod}
           onClick={() => {
-            const next = sorted[index + 1]
-            if (next) onSelectPeriod(next.id)
+            if (hasNext) {
+              const next = sorted[index + 1]
+              if (next) onSelectPeriod(next.id)
+              return
+            }
+            if (canAdvance) onRequestNextPeriod?.()
           }}
         >
           <ChevronRight size={20} />

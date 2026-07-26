@@ -192,7 +192,7 @@ describe('ExpenseService', () => {
     ).toThrow(/moneda/i)
   })
 
-  it('en solo pesos registra sin conversión y cotización 1', () => {
+  it('en solo pesos registra sin conversión pero guarda cotización real', () => {
     const onlyArs = testSettings({
       enabledCurrencies: [Currency.ARS],
       usdWhite: 1500,
@@ -209,7 +209,7 @@ describe('ExpenseService', () => {
       },
       onlyArs,
     )
-    expect(expense.exchangeRate).toBe(1)
+    expect(expense.exchangeRate).toBe(1500)
     expect(expense.usdAmount).toBe(2500)
     expect(expense.originalAmount).toBe(2500)
     expect(expense.originalCurrency).toBe(Currency.ARS)

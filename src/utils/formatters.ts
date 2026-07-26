@@ -46,3 +46,14 @@ export function formatPercent(value: number): string {
   const rounded = Math.round(value)
   return `${rounded}%`
 }
+
+/**
+ * Monto "plano" para exportaciones CSV: sin separador de miles y siempre
+ * con 2 decimales fijos (punto como separador decimal). Este formato se
+ * interpreta como número válido en cualquier configuración regional de
+ * Excel/Numbers; con separador de miles ("100.000" o "100,000") el mismo
+ * archivo se rompe según la configuración regional de quien lo abre.
+ */
+export function formatCsvAmount(amount: number): string {
+  return amount.toFixed(2)
+}

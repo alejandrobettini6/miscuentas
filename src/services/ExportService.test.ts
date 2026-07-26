@@ -5,6 +5,7 @@ import { PERIOD_ID, testSettings } from '@/test/fixtures'
 import { ExportService } from './ExportService'
 
 const settings = testSettings({ usdWhite: 1554, usdCash: 1515 })
+const rates = { usdWhite: 1554, usdCash: 1515 }
 
 function parseCsvLine(line: string): string[] {
   const fields: string[] = []
@@ -66,32 +67,54 @@ const cashUsd: Expense = {
 
 describe('ExportService', () => {
   it('genera CSV con cuatro columnas y etiqueta Negro', () => {
-    const csv = ExportService.toCsv([whiteArs])
+    const csv = ExportService.toCsv([whiteArs], { rates })
     const lines = csv.split('\n')
     expect(lines[0]).toBe('Categoría Negro,Monto Negro,Categoría Blanco,Monto Blanco')
-    expect(lines.some((line) => line.includes('Super') && line.includes('15,77'))).toBe(true)
+    expect(lines.some((line) => line.includes('Super') && line.includes('15.77'))).toBe(true)
   })
 
   it('mantiene montos decimales en una sola columna y categorías como labels', () => {
-    const csv = ExportService.toCsv([whiteArs, cashUsd])
+    const csv = ExportService.toCsv([whiteArs, cashUsd], { rates })
     const dataRows = csv.split('\n').slice(1)
 
     for (const row of dataRows) {
       const cols = parseCsvLine(row)
       expect(cols).toHaveLength(4)
-      if (cols[0]) expect(Number.isNaN(Number(cols[0].replace(',', '.')))).toBe(true)
-      if (cols[2]) expect(Number.isNaN(Number(cols[2].replace(',', '.')))).toBe(true)
+      if (cols[0]) expect(Number.isNaN(Number(cols[0]))).toBe(true)
+      if (cols[2]) expect(Number.isNaN(Number(cols[2]))).toBe(true)
     }
 
     const superRow = dataRows.find((r) => parseCsvLine(r)[2] === 'Super')
     expect(superRow).toBeDefined()
     const superCols = parseCsvLine(superRow!)
-    expect(superCols[3]).toBe('15,77')
+    expect(superCols[3]).toBe('15.77')
 
     const salidasRow = dataRows.find((r) => parseCsvLine(r)[0] === 'Salidas')
     expect(salidasRow).toBeDefined()
     const salidasCols = parseCsvLine(salidasRow!)
-    expect(salidasCols[1]).toBe('10,20')
+    expect(salidasCols[1]).toBe('10.20')
+  })
+
+  it('los montos no llevan separador de miles (número plano con 2 decimales)', () => {
+    const bigExpense: Expense = {
+      ...whiteArs,
+      id: '3',
+      originalCurrency: Currency.USD,
+      originalAmount: 100000,
+      usdAmount: 100000,
+    }
+    const csv = ExportService.toCsv([bigExpense])
+    const dataRow = csv.split('\n')[1]!
+    const cols = parseCsvLine(dataRow)
+    expect(cols[3]).toBe('100000.00')
+  })
+
+  it('omite categorías fijas no habilitadas por el usuario', () => {
+    const csv = ExportService.toCsv([whiteArs, cashUsd], {
+      enabledFixedCategories: [Category.SALIDAS],
+    })
+    expect(csv.includes('Super')).toBe(false)
+    expect(csv.includes('Salidas')).toBe(true)
   })
 
   it('en logs USD deja cotización vacía y no parte decimales', () => {
@@ -99,9 +122,9 @@ describe('ExportService', () => {
     const cols = parseCsvLine(logs.split('\n')[1]!)
     expect(cols).toHaveLength(11)
     expect(cols[6]).toBe('USD')
-    expect(cols[7]).toBe('10,20')
+    expect(cols[7]).toBe('10.20')
     expect(cols[8]).toBe('')
-    expect(cols[9]).toBe('10,20')
+    expect(cols[9]).toBe('10.20')
     expect(cols[10]).toBe(PERIOD_ID)
   })
 
@@ -111,9 +134,9 @@ describe('ExportService', () => {
     expect(cols).toHaveLength(11)
     expect(cols[4]).toBe('Super')
     expect(cols[6]).toBe('ARS')
-    expect(cols[7]).toBe('24.500')
-    expect(cols[8]).toBe('1.554')
-    expect(cols[9]).toBe('15,77')
+    expect(cols[7]).toBe('24500.00')
+    expect(cols[8]).toBe('1554.00')
+    expect(cols[9]).toBe('15.77')
   })
 
   it('exporta JSON v2 restaurable sin auth', () => {

@@ -2,12 +2,13 @@ import { memo } from 'react'
 import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Currency } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel } from '@/types/models'
-import { accountingAmount } from '@/services/AccountingCurrency'
+import { accountingAmount, type ExchangeRates } from '@/services/AccountingCurrency'
 import { formatLastMovementDelta, formatMoneyLabel } from '@/utils/formatters'
 
 interface CategoryRowProps {
   row: CategoryRowModel
   accountingCurrency?: Currency
+  rates?: ExchangeRates
   disabled?: boolean
   /** Categoría personalizada sin movimientos: el trash la elimina. */
   canRemoveCategory?: boolean
@@ -21,6 +22,7 @@ interface CategoryRowProps {
 function CategoryRowComponent({
   row,
   accountingCurrency = Currency.USD,
+  rates = { usdWhite: 1, usdCash: 1 },
   disabled,
   canRemoveCategory = false,
   onRegister,
@@ -33,7 +35,7 @@ function CategoryRowComponent({
   const hasMovements = row.totalUsd !== 0 || hasLast
   const trashRemovesCategory = canRemoveCategory && !hasLast
   const lastAmount = row.lastExpense
-    ? accountingAmount(row.lastExpense, accountingCurrency)
+    ? accountingAmount(row.lastExpense, accountingCurrency, rates)
     : 0
 
   return (

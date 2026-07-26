@@ -3,7 +3,7 @@ import { readJson, writeJson } from '@/lib/localStorage'
 import { PeriodService } from '@/services/PeriodService'
 import { PeriodStatus } from '@/types/enums'
 import type { Expense, Period } from '@/types/models'
-import { getYearMonthKey } from '@/utils/date'
+import { getYearMonthKey, nextYearMonth } from '@/utils/date'
 import type { PeriodRepository } from '../interfaces'
 
 function periodsKey(userId: string): string {
@@ -64,10 +64,42 @@ export class LocalPeriodRepository implements PeriodRepository {
     }
 
     const closed = PeriodService.closePeriod(active)
-    const next = PeriodService.openNextPeriod(userId, closed, monthlyLimit)
-    const updated = periods.map((p) => (p.id === closed.id ? closed : p))
+    // Si el mes siguiente ya fue creado por adelantado (createNextPeriod),
+    // lo reutilizamos en vez de duplicarlo.
+    const targetYearMonth = nextYearMonth(active.yearMonth)
+    const existingNext = periods.find(
+      (p) => p.id !== closed.id && p.yearMonth === targetYearMonth,
+    )
+    const next: Period = existingNext
+      ? {
+          ...existingNext,
+          status: PeriodStatus.ACTIVE,
+          closedAt: null,
+          monthlyLimitSnapshot: monthlyLimit,
+        }
+      : PeriodService.buildPeriod(userId, targetYearMonth, {
+          monthlyLimitSnapshot: monthlyLimit,
+        })
+
+    const updated = periods
+      .filter((p) => p.id !== next.id)
+      .map((p) => (p.id === closed.id ? closed : p))
     updated.push(next)
     await this.save(userId, updated)
+    return next
+  }
+
+  /**
+   * Crea (o reutiliza) el período siguiente al último existente sin cerrar
+   * ni modificar el período activo actual. Permite registrar gastos por
+   * adelantado en un mes futuro.
+   */
+  async createNextPeriod(userId: string, monthlyLimit: number): Promise<Period> {
+    const periods = await this.list(userId)
+    const next = PeriodService.planNextPeriod(periods, userId, monthlyLimit)
+    if (!periods.some((p) => p.id === next.id)) {
+      await this.save(userId, [...periods, next])
+    }
     return next
   }
 

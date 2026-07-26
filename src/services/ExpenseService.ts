@@ -122,8 +122,12 @@ export class ExpenseService {
 
   /**
    * Resuelve cotización e importe contable.
-   * Base USD: ARS → amount/rate; USD igual.
-   * Base ARS: USD → amount*rate; ARS igual.
+   *
+   * Siempre almacena la cotización real de la cuenta (settings.usdWhite /
+   * settings.usdCash) en `exchangeRate`, incluso cuando la moneda del gasto
+   * coincide con la moneda contable (antes se guardaba 1 en ese caso).
+   * Esto permite re-derivar el importe en cualquier moneda después, sin
+   * depender de cuál era la moneda contable al momento de la creación.
    */
   static resolveAmounts(
     accountType: AccountType,
@@ -137,7 +141,7 @@ export class ExpenseService {
 
     if (currency === accountingCurrency) {
       return {
-        exchangeRate: 1,
+        exchangeRate: accountRate,
         accountingAmount: CurrencyConverter.roundMoney(amount),
       }
     }
@@ -159,15 +163,9 @@ export class ExpenseService {
 
   static resolveRate(
     accountType: AccountType,
-    currency: Currency,
+    _currency: Currency,
     settings: Settings,
   ): number {
-    const accountingCurrency = resolveAccountingCurrency(settings)
-    if (currency === accountingCurrency) {
-      return 1
-    }
-    const accountRate =
-      accountType === AccountType.WHITE ? settings.usdWhite : settings.usdCash
-    return accountRate
+    return accountType === AccountType.WHITE ? settings.usdWhite : settings.usdCash
   }
 }
