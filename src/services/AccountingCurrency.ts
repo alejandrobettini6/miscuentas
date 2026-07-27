@@ -1,5 +1,12 @@
 import { AccountType, Currency } from '@/types/enums'
 import type { Expense, Settings } from '@/types/models'
+import { CurrencyConverter } from './CurrencyConverter'
+
+/** Cotizaciones vigentes por tipo de cuenta. */
+export interface ExchangeRates {
+  usdWhite: number
+  usdCash: number
+}
 
 /**
  * Moneda contable derivada de la configuración del usuario.
@@ -55,20 +62,27 @@ export function shouldShowUsdCashRate(settings: Settings): boolean {
 }
 
 /**
- * Importe a sumar en totales según la moneda contable.
- * Con base ARS y movimiento en ARS usa `originalAmount` (corrige históricos
- * que se guardaron convertidos a USD).
- * El campo persistido `usdAmount` actúa como importe contable genérico.
+ * Importe convertido a la moneda contable solicitada.
+ *
+ * Siempre parte de `originalCurrency` / `originalAmount` (la moneda y valor
+ * que el usuario ingresó) y convierte a `accountingCurrency` usando las
+ * cotizaciones actuales de `rates`.  Así, si el usuario cambia la moneda de
+ * expresión (ARS ↔ USD), todos los importes se recalculan correctamente.
  */
 export function accountingAmount(
   expense: Expense,
   accountingCurrency: Currency,
+  rates: ExchangeRates,
 ): number {
-  if (
-    accountingCurrency === Currency.ARS &&
-    expense.originalCurrency === Currency.ARS
-  ) {
+  if (expense.originalCurrency === accountingCurrency) {
     return expense.originalAmount
   }
-  return expense.usdAmount
+
+  const rate =
+    expense.accountType === AccountType.WHITE ? rates.usdWhite : rates.usdCash
+
+  if (accountingCurrency === Currency.USD) {
+    return CurrencyConverter.roundMoney(expense.originalAmount / rate)
+  }
+  return CurrencyConverter.roundMoney(expense.originalAmount * rate)
 }

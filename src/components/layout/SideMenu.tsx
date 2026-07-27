@@ -3,6 +3,7 @@ import { Monitor, Moon, Settings, Sun, X } from 'lucide-react'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useSettingsContext } from '@/contexts/SettingsContext'
 import { useTheme, type ThemePreference } from '@/contexts/ThemeContext'
+import { useBackButtonClose } from '@/hooks/useBackButtonClose'
 import {
   resolveAccountingCurrency,
   shouldShowUsdCashRate,
@@ -63,6 +64,8 @@ export function SideMenu({
       window.setTimeout(() => inputRef.current?.focus(), 50)
     }
   }, [activeField])
+
+  useBackButtonClose(open, onClose)
 
   if (!open) return null
 
@@ -125,6 +128,9 @@ export function SideMenu({
       ExportService.toCsv(expenses, {
         enabledAccounts: settings.enabledAccounts,
         customCategories: settings.customCategories,
+        enabledFixedCategories: settings.enabledFixedCategories,
+        accountingCurrency,
+        rates: { usdWhite: settings.usdWhite, usdCash: settings.usdCash },
       }),
       'text/csv;charset=utf-8',
     )

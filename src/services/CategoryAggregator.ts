@@ -1,7 +1,7 @@
 import { CATEGORY_LABELS, FIXED_CATEGORIES } from '@/constants/categories'
 import { AccountType, Category, Currency } from '@/types/enums'
 import type { CategoryRow, Expense } from '@/types/models'
-import { accountingAmount } from './AccountingCurrency'
+import { accountingAmount, type ExchangeRates } from './AccountingCurrency'
 
 export class CategoryAggregator {
   static buildRows(
@@ -10,6 +10,7 @@ export class CategoryAggregator {
     customCategories: string[] = [],
     enabledFixedCategories: Category[] = FIXED_CATEGORIES,
     accountingCurrency: Currency = Currency.USD,
+    rates: ExchangeRates = { usdWhite: 1, usdCash: 1 },
   ): CategoryRow[] {
     const accountExpenses = expenses.filter((e) => e.accountType === accountType)
     const rows: CategoryRow[] = []
@@ -18,13 +19,13 @@ export class CategoryAggregator {
     for (const category of FIXED_CATEGORIES) {
       if (!enabledFixed.has(category)) continue
       const items = accountExpenses.filter((e) => e.category === category)
-      rows.push(buildFixedRow(category, items, accountingCurrency))
+      rows.push(buildFixedRow(category, items, accountingCurrency, rates))
     }
 
     const otherGeneral = accountExpenses.filter(
       (e) => e.category === Category.OTHER && !e.description,
     )
-    rows.push(buildFixedRow(Category.OTHER, otherGeneral, accountingCurrency))
+    rows.push(buildFixedRow(Category.OTHER, otherGeneral, accountingCurrency, rates))
 
     const grandesMap = new Map<string, Expense[]>()
     for (const expense of accountExpenses) {
@@ -35,7 +36,6 @@ export class CategoryAggregator {
       grandesMap.set(key, list)
     }
 
-    // Sembrar categorías personalizadas guardadas aunque no tengan gastos.
     for (const name of customCategories) {
       const trimmed = name.trim()
       if (!trimmed) continue
@@ -50,7 +50,7 @@ export class CategoryAggregator {
       const fromSettings = customCategories.find((c) => c.toLowerCase() === key)
       const label = items[0]?.description ?? fromSettings ?? key
       const totalUsd = round(
-        items.reduce((acc, e) => acc + accountingAmount(e, accountingCurrency), 0),
+        items.reduce((acc, e) => acc + accountingAmount(e, accountingCurrency, rates), 0),
       )
       const lastExpense = latest(items)
       grandesRows.push({
@@ -86,18 +86,19 @@ export class CategoryAggregator {
     expenses: Expense[],
     row: Pick<CategoryRow, 'category' | 'description' | 'isOtrosGrande'>,
     accountingCurrency: Currency = Currency.USD,
+    rates: ExchangeRates = { usdWhite: 1, usdCash: 1 },
   ): { totalWhite: number; totalCash: number } {
     const matched = expenses.filter((e) => matchesRow(e, row))
     return {
       totalWhite: round(
         matched
           .filter((e) => e.accountType === AccountType.WHITE)
-          .reduce((acc, e) => acc + accountingAmount(e, accountingCurrency), 0),
+          .reduce((acc, e) => acc + accountingAmount(e, accountingCurrency, rates), 0),
       ),
       totalCash: round(
         matched
           .filter((e) => e.accountType === AccountType.CASH)
-          .reduce((acc, e) => acc + accountingAmount(e, accountingCurrency), 0),
+          .reduce((acc, e) => acc + accountingAmount(e, accountingCurrency, rates), 0),
       ),
     }
   }
@@ -128,13 +129,14 @@ function buildFixedRow(
   category: Category,
   items: Expense[],
   accountingCurrency: Currency,
+  rates: ExchangeRates,
 ): CategoryRow {
   return {
     category,
     description: null,
     label: CATEGORY_LABELS[category],
     totalUsd: round(
-      items.reduce((acc, e) => acc + accountingAmount(e, accountingCurrency), 0),
+      items.reduce((acc, e) => acc + accountingAmount(e, accountingCurrency, rates), 0),
     ),
     lastExpense: latest(items),
     isOtrosGrande: false,

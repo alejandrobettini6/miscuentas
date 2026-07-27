@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useBackButtonClose } from '@/hooks/useBackButtonClose'
 
 interface ModalProps {
   open: boolean
@@ -8,6 +9,8 @@ interface ModalProps {
 }
 
 export function Modal({ open, title, children, onClose }: ModalProps) {
+  useBackButtonClose(open, onClose)
+
   if (!open) return null
 
   return (

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useSettingsContext } from '@/contexts/SettingsContext'
 import { FIXED_CATEGORIES } from '@/constants/categories'
-import { resolveAccountingCurrency } from '@/services/AccountingCurrency'
+import { resolveAccountingCurrency, type ExchangeRates } from '@/services/AccountingCurrency'
 import { CategoryAggregator } from '@/services/CategoryAggregator'
 import { SummaryCalculator } from '@/services/SummaryCalculator'
 import { Currency, type AccountType } from '@/types/enums'
@@ -17,10 +17,15 @@ export function useSummary(expenses: Expense[], accountType: AccountType) {
     const accountingCurrency = settings
       ? resolveAccountingCurrency(settings)
       : Currency.USD
+    const rates: ExchangeRates = {
+      usdWhite: settings?.usdWhite ?? 1,
+      usdCash: settings?.usdCash ?? 1,
+    }
     const summary = SummaryCalculator.calculate(
       expenses,
       monthlyLimit,
       accountingCurrency,
+      rates,
     )
     const color = SummaryCalculator.resolveBudgetColor(
       summary.remainingPercent,
@@ -36,9 +41,10 @@ export function useSummary(expenses: Expense[], accountType: AccountType) {
       customCategories,
       enabledFixed,
       accountingCurrency,
+      rates,
     )
 
-    return { summary, color, progress, rows, accountingCurrency }
+    return { summary, color, progress, rows, accountingCurrency, rates }
   }, [
     expenses,
     settings,

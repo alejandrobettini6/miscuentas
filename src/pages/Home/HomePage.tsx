@@ -38,6 +38,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Tabs } from '@/components/ui/Tabs'
 import { CATEGORY_LABELS, DEFAULT_SETTINGS } from '@/constants/categories'
 import { useSettingsContext } from '@/contexts/SettingsContext'
+import { useAmountsVisibility } from '@/hooks/useAmountsVisibility'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { usePeriods } from '@/hooks/usePeriods'
@@ -46,6 +47,7 @@ import { CategoryAggregator } from '@/services/CategoryAggregator'
 import { VisibilityProjector } from '@/services/VisibilityProjector'
 import { AccountType, Category, Currency, MonthMode, PeriodStatus, SummaryDisplayMode } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel, Expense } from '@/types/models'
+import { getMonthLabelFromKey, getYearMonthKey, nextYearMonth } from '@/utils/date'
 import { getErrorMessage } from '@/utils/errors'
 import {
   isValidCustomCategoryName,
@@ -69,9 +71,17 @@ export function HomePage() {
     isMutating,
     refresh: refreshExpenses,
   } = useExpenses()
-  const { periods, activePeriod, closePeriod, isClosing, refresh: refreshPeriods } =
-    usePeriods()
+  const {
+    periods,
+    activePeriod,
+    closePeriod,
+    isClosing,
+    advanceNextPeriod,
+    isAdvancing,
+    refresh: refreshPeriods,
+  } = usePeriods()
   const { isOnline, pendingCount } = useOnlineStatus()
+  const [amountsHidden, toggleAmountsHidden] = useAmountsVisibility()
 
   const enabledAccounts = settings?.enabledAccounts ?? [
     AccountType.WHITE,
@@ -98,6 +108,7 @@ export function HomePage() {
   const [removeCategoryTarget, setRemoveCategoryTarget] =
     useState<CategoryRowModel | null>(null)
   const [detailsRow, setDetailsRow] = useState<CategoryRowModel | null>(null)
+  const [confirmAdvancePeriod, setConfirmAdvancePeriod] = useState(false)
   const [undoDeadline, setUndoDeadline] = useState<number | null>(null)
   const [undoExpenseId, setUndoExpenseId] = useState<string | null>(null)
   const [busyRowKey, setBusyRowKey] = useState<string | null>(null)
@@ -136,7 +147,7 @@ export function HomePage() {
     )
   }, [allExpenses, settings, selectedPeriod])
 
-  const { summary, color, progress, rows, accountingCurrency } = useSummary(
+  const { summary, color, progress, rows, accountingCurrency, rates } = useSummary(
     visibleExpenses,
     accountType,
   )
@@ -176,6 +187,25 @@ export function HomePage() {
     setDetailsRow(row)
   }, [])
 
+  const handleEditExpenseFromDetails = useCallback(
+    (expense: Expense) => {
+      if (isReadOnly || !detailsRow) return
+      const row = detailsRow
+      setDetailsRow(null)
+      setAmountMode({ type: 'edit', row, expense })
+    },
+    [isReadOnly, detailsRow],
+  )
+
+  const handleDeleteExpenseFromDetails = useCallback(
+    (expense: Expense) => {
+      if (isReadOnly) return
+      setDetailsRow(null)
+      setDeleteTarget(expense)
+    },
+    [isReadOnly],
+  )
+
   const handleRemoveCategoryRow = useCallback((row: CategoryRowModel) => {
     setRemoveCategoryTarget(row)
   }, [])
@@ -195,8 +225,9 @@ export function HomePage() {
       visibleExpenses,
       detailsRow,
       accountingCurrency,
+      rates,
     )
-  }, [detailsRow, visibleExpenses, accountingCurrency])
+  }, [detailsRow, visibleExpenses, accountingCurrency, rates])
 
   const clearUndo = useCallback(() => {
     setUndoDeadline(null)
@@ -332,6 +363,30 @@ export function HomePage() {
     }
   }
 
+  const nextPeriodPreviewLabel = useMemo(() => {
+    const sorted = [...periods].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth))
+    const last = sorted[sorted.length - 1]
+    const targetYearMonth = last
+      ? nextYearMonth(last.yearMonth)
+      : getYearMonthKey()
+    return getMonthLabelFromKey(targetYearMonth)
+  }, [periods])
+
+  const handleRequestNextPeriod = useCallback(() => {
+    setConfirmAdvancePeriod(true)
+  }, [])
+
+  const handleConfirmAdvancePeriod = async () => {
+    setConfirmAdvancePeriod(false)
+    try {
+      const next = await advanceNextPeriod()
+      setSelectedPeriodId(next.id)
+      toast.success(`${next.label} habilitado para registrar por adelantado`)
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'No se pudo adelantar el mes'))
+    }
+  }
+
   const handleAddCategory = async (rawName: string) => {
     if (!settings || isReadOnly) throw new Error('Sin configuración')
 
@@ -442,9 +497,9 @@ export function HomePage() {
     amountMode.row.category !== Category.OTHER &&
     !amountMode.row.isOtrosGrande
 
-  const defaultCurrency = enabledCurrencies.includes(Currency.USD)
-    ? Currency.USD
-    : (enabledCurrencies[0] ?? Currency.USD)
+  // Moneda por defecto al registrar: la moneda de expresión configurada por
+  // el usuario (accountingCurrency), no siempre USD.
+  const defaultCurrency = accountingCurrency
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[480px] px-4 pb-28">
@@ -454,6 +509,8 @@ export function HomePage() {
         selectedPeriodId={selectedPeriod?.id ?? null}
         onSelectPeriod={setSelectedPeriodId}
         readOnly={isReadOnly}
+        onRequestNextPeriod={handleRequestNextPeriod}
+        advancingPeriod={isAdvancing}
       />
 
       {!isOnline && (
@@ -479,6 +536,8 @@ export function HomePage() {
         enabledAccounts={enabledAccounts}
         accountingCurrency={accountingCurrency}
         displayMode={settings?.summaryDisplayMode ?? SummaryDisplayMode.LIMIT}
+        amountsHidden={amountsHidden}
+        onToggleAmounts={toggleAmountsHidden}
       />
 
       <div className="mt-4">
@@ -500,6 +559,7 @@ export function HomePage() {
                 key={rowKey(row)}
                 row={row}
                 accountingCurrency={accountingCurrency}
+                rates={rates}
                 disabled={locked}
                 canRemoveCategory={canRemoveCustomCategory(row)}
                 onRegister={handleRegisterRow}
@@ -595,6 +655,35 @@ export function HomePage() {
         </div>
       </Modal>
 
+      <Modal
+        open={confirmAdvancePeriod}
+        title="Adelantar mes"
+        onClose={() => setConfirmAdvancePeriod(false)}
+      >
+        <p className="mb-4 text-[var(--muted)]">
+          ¿Adelantar a <span className="font-semibold text-[var(--text)]">{nextPeriodPreviewLabel}</span>?
+          Vas a poder registrar gastos ahí sin cerrar{' '}
+          {selectedPeriod?.label ?? 'el mes actual'}. Los movimientos no se mezclan
+          entre meses.
+        </p>
+        <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            className="flex-1"
+            onClick={() => setConfirmAdvancePeriod(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            className="flex-1"
+            disabled={isAdvancing}
+            onClick={() => void handleConfirmAdvancePeriod()}
+          >
+            Adelantar
+          </Button>
+        </div>
+      </Modal>
+
       <Suspense fallback={null}>
       <CategoryDetailsModal
         open={detailsRow !== null}
@@ -605,6 +694,8 @@ export function HomePage() {
         totalCash={detailsAccountTotals.totalCash}
         enabledAccounts={enabledAccounts}
         accountingCurrency={accountingCurrency}
+        rates={rates}
+        isReadOnly={isReadOnly}
         onClose={() => setDetailsRow(null)}
         onRemoveCategory={
           detailsRow?.isOtrosGrande && !isReadOnly
@@ -615,6 +706,8 @@ export function HomePage() {
               }
             : undefined
         }
+        onEditExpense={isReadOnly ? undefined : handleEditExpenseFromDetails}
+        onDeleteExpense={isReadOnly ? undefined : handleDeleteExpenseFromDetails}
       />
 
       <SideMenu

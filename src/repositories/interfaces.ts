@@ -41,6 +41,12 @@ export interface PeriodRepository {
   closeAndOpenNext(userId: string, monthlyLimit: number): Promise<Period>
   /** En modo automático: cierra el activo si el mes calendario cambió. */
   rolloverIfNeeded(userId: string, monthlyLimit: number): Promise<Period>
+  /**
+   * Crea (o reutiliza si ya existe) el período siguiente al último
+   * existente, SIN cerrar ni tocar el período activo actual. Permite
+   * registrar gastos por adelantado en un mes futuro.
+   */
+  createNextPeriod(userId: string, monthlyLimit: number): Promise<Period>
   replaceAll(userId: string, periods: Period[]): Promise<void>
 }
 

@@ -1,9 +1,12 @@
 import { memo } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import { ACCOUNT_LABELS } from '@/constants/categories'
 import { AccountType, BudgetColor, Currency, SummaryDisplayMode } from '@/types/enums'
 import type { MonthlySummary } from '@/types/models'
 import { formatMoneyLabel, formatPercent } from '@/utils/formatters'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+
+const HIDDEN_PLACEHOLDER = '••••••'
 
 const TEXT_COLORS: Record<BudgetColor, string> = {
   [BudgetColor.GREEN]: 'text-[var(--green)]',
@@ -19,6 +22,8 @@ interface MonthlySummaryCardProps {
   enabledAccounts?: AccountType[]
   accountingCurrency?: Currency
   displayMode?: SummaryDisplayMode
+  amountsHidden?: boolean
+  onToggleAmounts?: () => void
 }
 
 function MonthlySummaryCardComponent({
@@ -28,15 +33,35 @@ function MonthlySummaryCardComponent({
   enabledAccounts = [AccountType.WHITE, AccountType.CASH],
   accountingCurrency = Currency.USD,
   displayMode = SummaryDisplayMode.LIMIT,
+  amountsHidden = false,
+  onToggleAmounts,
 }: MonthlySummaryCardProps) {
   const showAccountBreakdown = enabledAccounts.length === 2
+
+  const money = (amount: number) =>
+    amountsHidden ? HIDDEN_PLACEHOLDER : formatMoneyLabel(amount, accountingCurrency)
+
+  const visibilityToggle = onToggleAmounts && (
+    <button
+      type="button"
+      className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--muted)] active:bg-[var(--press)]"
+      aria-label={amountsHidden ? 'Mostrar totales' : 'Ocultar totales'}
+      aria-pressed={amountsHidden}
+      onClick={onToggleAmounts}
+    >
+      {amountsHidden ? <EyeOff size={20} /> : <Eye size={20} />}
+    </button>
+  )
 
   if (displayMode === SummaryDisplayMode.TOTAL) {
     return (
       <section className="rounded-2xl bg-[var(--surface)] p-5">
-        <p className="text-sm text-[var(--muted)]">Total gastado este mes</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm text-[var(--muted)]">Total gastado este mes</p>
+          {visibilityToggle}
+        </div>
         <p className="mt-1 text-4xl font-bold tabular-nums text-[var(--text)]">
-          {formatMoneyLabel(summary.totalSpent, accountingCurrency)}
+          {money(summary.totalSpent)}
         </p>
 
         {showAccountBreakdown && (
@@ -45,7 +70,7 @@ function MonthlySummaryCardComponent({
               <p>
                 {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
                 <span className="font-semibold text-[var(--text)]">
-                  {formatMoneyLabel(summary.totalWhite, accountingCurrency)}
+                  {money(summary.totalWhite)}
                 </span>
               </p>
             )}
@@ -53,7 +78,7 @@ function MonthlySummaryCardComponent({
               <p>
                 {ACCOUNT_LABELS[AccountType.CASH]}{' '}
                 <span className="font-semibold text-[var(--text)]">
-                  {formatMoneyLabel(summary.totalCash, accountingCurrency)}
+                  {money(summary.totalCash)}
                 </span>
               </p>
             )}
@@ -65,9 +90,12 @@ function MonthlySummaryCardComponent({
 
   return (
     <section className="rounded-2xl bg-[var(--surface)] p-5">
-      <p className="text-sm text-[var(--muted)]">Disponible este mes</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-[var(--muted)]">Disponible este mes</p>
+        {visibilityToggle}
+      </div>
       <p className={`mt-1 text-4xl font-bold tabular-nums ${TEXT_COLORS[color]}`}>
-        {formatMoneyLabel(summary.available, accountingCurrency)}
+        {money(summary.available)}
       </p>
 
       <div className="mt-4">
@@ -81,7 +109,7 @@ function MonthlySummaryCardComponent({
       <p className="mt-3 text-base text-[var(--muted)]">
         Total gastado{' '}
         <span className="font-semibold text-[var(--text)]">
-          {formatMoneyLabel(summary.totalSpent, accountingCurrency)}
+          {money(summary.totalSpent)}
         </span>
       </p>
 
@@ -91,7 +119,7 @@ function MonthlySummaryCardComponent({
             <p>
               {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
               <span className="font-semibold text-[var(--text)]">
-                {formatMoneyLabel(summary.totalWhite, accountingCurrency)}
+                {money(summary.totalWhite)}
               </span>
             </p>
           )}
@@ -99,7 +127,7 @@ function MonthlySummaryCardComponent({
             <p>
               {ACCOUNT_LABELS[AccountType.CASH]}{' '}
               <span className="font-semibold text-[var(--text)]">
-                {formatMoneyLabel(summary.totalCash, accountingCurrency)}
+                {money(summary.totalCash)}
               </span>
             </p>
           )}

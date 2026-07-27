@@ -45,16 +45,29 @@ describe('AccountingCurrency', () => {
     ).toBe(Currency.ARS)
   })
 
-  it('usa originalAmount para ARS históricos en modo solo pesos', () => {
-    const expense = testExpense({
+  it('usa originalAmount cuando moneda coincide y convierte con rates cuando no', () => {
+    const rates = { usdWhite: 1000, usdCash: 1000 }
+    const arsExpense = testExpense({
       periodId: PERIOD_ID,
+      accountType: AccountType.WHITE,
       originalCurrency: Currency.ARS,
       originalAmount: 10000,
       exchangeRate: 1000,
       usdAmount: 10,
     })
-    expect(accountingAmount(expense, Currency.ARS)).toBe(10000)
-    expect(accountingAmount(expense, Currency.USD)).toBe(10)
+    expect(accountingAmount(arsExpense, Currency.ARS, rates)).toBe(10000)
+    expect(accountingAmount(arsExpense, Currency.USD, rates)).toBe(10)
+
+    const usdExpense = testExpense({
+      periodId: PERIOD_ID,
+      accountType: AccountType.WHITE,
+      originalCurrency: Currency.USD,
+      originalAmount: 5,
+      exchangeRate: 1,
+      usdAmount: 5,
+    })
+    expect(accountingAmount(usdExpense, Currency.USD, rates)).toBe(5)
+    expect(accountingAmount(usdExpense, Currency.ARS, rates)).toBe(5000)
   })
 
   it('muestra cotizaciones solo con ARS+USD y cuenta habilitada', () => {

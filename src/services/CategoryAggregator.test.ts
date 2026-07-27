@@ -67,24 +67,28 @@ describe('CategoryAggregator', () => {
       expense({
         category: Category.OTHER,
         description: 'Guitarra',
+        originalAmount: 300,
         usdAmount: 300,
         createdAt: '2026-01-01T10:00:00.000Z',
       }),
       expense({
         category: Category.OTHER,
         description: 'Guitarra',
+        originalAmount: 200,
         usdAmount: 200,
         createdAt: '2026-01-02T10:00:00.000Z',
       }),
       expense({
         category: Category.OTHER,
         description: 'Ventanal',
+        originalAmount: 800,
         usdAmount: 800,
         createdAt: '2026-01-03T10:00:00.000Z',
       }),
       expense({
         category: Category.OTHER,
         description: null,
+        originalAmount: 25,
         usdAmount: 25,
       }),
     ]
@@ -108,11 +112,13 @@ describe('CategoryAggregator', () => {
       expense({
         category: Category.OTHER,
         description: 'Taxi',
+        originalAmount: 10,
         usdAmount: 10,
       }),
       expense({
         category: Category.OTHER,
         description: 'taxi',
+        originalAmount: 5,
         usdAmount: 5,
       }),
     ]
@@ -137,8 +143,8 @@ describe('CategoryAggregator', () => {
 
   it('no mezcla cuentas', () => {
     const expenses = [
-      expense({ accountType: AccountType.WHITE, usdAmount: 10 }),
-      expense({ accountType: AccountType.CASH, usdAmount: 99 }),
+      expense({ accountType: AccountType.WHITE, originalAmount: 10, usdAmount: 10 }),
+      expense({ accountType: AccountType.CASH, originalAmount: 99, usdAmount: 99 }),
     ]
     const white = CategoryAggregator.buildRows(expenses, AccountType.WHITE)
     const superRow = white.find((r) => r.label === 'Super')
@@ -157,6 +163,7 @@ describe('CategoryAggregator', () => {
       expense({
         category: Category.OTHER,
         description: 'Mascotas',
+        originalAmount: 40,
         usdAmount: 40,
       }),
     ]

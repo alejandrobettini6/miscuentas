@@ -2,23 +2,47 @@ import { ACCOUNT_LABELS, CATEGORY_LABELS, FIXED_CATEGORIES } from '@/constants/c
 import { AccountType, Category, Currency } from '@/types/enums'
 import type { Expense, Period, Settings } from '@/types/models'
 import { formatDateParts } from '@/utils/date'
-import { formatUsd } from '@/utils/formatters'
+import { formatCsvAmount } from '@/utils/formatters'
+import type { ExchangeRates } from './AccountingCurrency'
 import { CategoryAggregator } from './CategoryAggregator'
 
 export class ExportService {
   static toCsv(
     expenses: Expense[],
-    options?: { enabledAccounts?: AccountType[]; customCategories?: string[] },
+    options?: {
+      enabledAccounts?: AccountType[]
+      customCategories?: string[]
+      enabledFixedCategories?: Category[]
+      accountingCurrency?: Currency
+      rates?: ExchangeRates
+    },
   ): string {
     const customCategories = options?.customCategories ?? []
+    const enabledFixedCategories = options?.enabledFixedCategories ?? FIXED_CATEGORIES
+    const accountingCurrency = options?.accountingCurrency ?? Currency.USD
+    const rates = options?.rates ?? { usdWhite: 1, usdCash: 1 }
     const enabled = new Set(
       options?.enabledAccounts ?? [AccountType.WHITE, AccountType.CASH],
     )
     const whiteRows = enabled.has(AccountType.WHITE)
-      ? CategoryAggregator.buildRows(expenses, AccountType.WHITE, customCategories)
+      ? CategoryAggregator.buildRows(
+          expenses,
+          AccountType.WHITE,
+          customCategories,
+          enabledFixedCategories,
+          accountingCurrency,
+          rates,
+        )
       : []
     const cashRows = enabled.has(AccountType.CASH)
-      ? CategoryAggregator.buildRows(expenses, AccountType.CASH, customCategories)
+      ? CategoryAggregator.buildRows(
+          expenses,
+          AccountType.CASH,
+          customCategories,
+          enabledFixedCategories,
+          accountingCurrency,
+          rates,
+        )
       : []
     const max = Math.max(whiteRows.length, cashRows.length, 1)
 
@@ -32,9 +56,9 @@ export class ExportService {
       lines.push(
         [
           cash ? escapeCsv(cash.label) : '',
-          cash ? escapeCsv(formatUsd(cash.totalUsd)) : '',
+          cash ? escapeCsv(formatCsvAmount(cash.totalUsd)) : '',
           white ? escapeCsv(white.label) : '',
-          white ? escapeCsv(formatUsd(white.totalUsd)) : '',
+          white ? escapeCsv(formatCsvAmount(white.totalUsd)) : '',
         ].join(','),
       )
     }
@@ -70,7 +94,7 @@ export class ExportService {
       const cotizacion =
         expense.originalCurrency === Currency.USD
           ? ''
-          : escapeCsv(formatUsd(expense.exchangeRate))
+          : escapeCsv(formatCsvAmount(expense.exchangeRate))
 
       return [
         expense.createdAt,
@@ -80,9 +104,9 @@ export class ExportService {
         escapeCsv(categoryLabel),
         escapeCsv(expense.description ?? ''),
         expense.originalCurrency,
-        escapeCsv(formatUsd(expense.originalAmount)),
+        escapeCsv(formatCsvAmount(expense.originalAmount)),
         cotizacion,
-        escapeCsv(formatUsd(expense.usdAmount)),
+        escapeCsv(formatCsvAmount(expense.usdAmount)),
         expense.periodId,
       ].join(',')
     })

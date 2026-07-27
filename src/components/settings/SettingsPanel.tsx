@@ -7,6 +7,7 @@ import {
   FIXED_CATEGORIES,
 } from '@/constants/categories'
 import { useSettingsContext } from '@/contexts/SettingsContext'
+import { useBackButtonClose } from '@/hooks/useBackButtonClose'
 import {
   needsExchangeRates,
   resolveAccountingCurrency,
@@ -32,6 +33,8 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const { settings, updateSettings } = useSettingsContext()
   const [busy, setBusy] = useState(false)
+
+  useBackButtonClose(open, onClose)
 
   if (!open || !settings) return null
 
