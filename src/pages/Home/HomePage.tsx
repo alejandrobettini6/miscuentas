@@ -21,6 +21,11 @@ const ImportAccountsModal = lazy(() =>
     default: m.ImportAccountsModal,
   })),
 )
+const CardStatementImportWizard = lazy(() =>
+  import('@/components/import/CardStatementImportWizard').then((m) => ({
+    default: m.CardStatementImportWizard,
+  })),
+)
 const OnboardingWizard = lazy(() =>
   import('@/components/settings/OnboardingWizard').then((m) => ({
     default: m.OnboardingWizard,
@@ -99,6 +104,7 @@ export function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [importStatementOpen, setImportStatementOpen] = useState(false)
   const [onboardingOpen, setOnboardingOpen] = useState(false)
   const [onboardingMode, setOnboardingMode] = useState<'initial' | 'reconfigure'>(
     'initial',
@@ -684,32 +690,6 @@ export function HomePage() {
         </div>
       </Modal>
 
-      <Suspense fallback={null}>
-      <CategoryDetailsModal
-        open={detailsRow !== null}
-        row={detailsRow}
-        accountType={accountType}
-        items={detailsItems}
-        totalWhite={detailsAccountTotals.totalWhite}
-        totalCash={detailsAccountTotals.totalCash}
-        enabledAccounts={enabledAccounts}
-        accountingCurrency={accountingCurrency}
-        rates={rates}
-        isReadOnly={isReadOnly}
-        onClose={() => setDetailsRow(null)}
-        onRemoveCategory={
-          detailsRow?.isOtrosGrande && !isReadOnly
-            ? () => {
-                const row = detailsRow
-                setDetailsRow(null)
-                setRemoveCategoryTarget(row)
-              }
-            : undefined
-        }
-        onEditExpense={isReadOnly ? undefined : handleEditExpenseFromDetails}
-        onDeleteExpense={isReadOnly ? undefined : handleDeleteExpenseFromDetails}
-      />
-
       <SideMenu
         open={menuOpen}
         expenses={visibleExpenses}
@@ -726,45 +706,100 @@ export function HomePage() {
           setOnboardingOpen(true)
         }}
         onOpenImport={() => setImportOpen(true)}
+        onOpenCardStatementImport={() => setImportStatementOpen(true)}
       />
 
-      <SettingsPanel
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onOpenOnboarding={() => {
-          setOnboardingMode('reconfigure')
-          setOnboardingOpen(true)
-        }}
-      />
-
-      {settings && (
-        <OnboardingWizard
-          open={onboardingOpen}
-          mode={onboardingMode}
-          settings={settings}
-          expenses={allExpenses}
-          periods={periods}
-          onSkip={skipOnboarding}
-          onComplete={completeOnboarding}
-          onClose={
-            onboardingMode === 'reconfigure' || settings.onboardingCompleted
-              ? () => setOnboardingOpen(false)
-              : undefined
-          }
-        />
+      {detailsRow !== null && (
+        <Suspense fallback={null}>
+          <CategoryDetailsModal
+            open
+            row={detailsRow}
+            accountType={accountType}
+            items={detailsItems}
+            totalWhite={detailsAccountTotals.totalWhite}
+            totalCash={detailsAccountTotals.totalCash}
+            enabledAccounts={enabledAccounts}
+            accountingCurrency={accountingCurrency}
+            rates={rates}
+            isReadOnly={isReadOnly}
+            onClose={() => setDetailsRow(null)}
+            onRemoveCategory={
+              detailsRow.isOtrosGrande && !isReadOnly
+                ? () => {
+                    const row = detailsRow
+                    setDetailsRow(null)
+                    setRemoveCategoryTarget(row)
+                  }
+                : undefined
+            }
+            onEditExpense={isReadOnly ? undefined : handleEditExpenseFromDetails}
+            onDeleteExpense={
+              isReadOnly ? undefined : handleDeleteExpenseFromDetails
+            }
+          />
+        </Suspense>
       )}
 
-      <ImportAccountsModal
-        open={importOpen}
-        expenses={allExpenses}
-        periods={periods}
-        onClose={() => setImportOpen(false)}
-        onImported={async () => {
-          await refreshPeriods()
-          await refreshExpenses()
-        }}
-      />
-      </Suspense>
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsPanel
+            open
+            onClose={() => setSettingsOpen(false)}
+            onOpenOnboarding={() => {
+              setOnboardingMode('reconfigure')
+              setOnboardingOpen(true)
+            }}
+          />
+        </Suspense>
+      )}
+
+      {onboardingOpen && settings && (
+        <Suspense fallback={null}>
+          <OnboardingWizard
+            open
+            mode={onboardingMode}
+            settings={settings}
+            expenses={allExpenses}
+            periods={periods}
+            onSkip={skipOnboarding}
+            onComplete={completeOnboarding}
+            onClose={
+              onboardingMode === 'reconfigure' || settings.onboardingCompleted
+                ? () => setOnboardingOpen(false)
+                : undefined
+            }
+          />
+        </Suspense>
+      )}
+
+      {importOpen && (
+        <Suspense fallback={null}>
+          <ImportAccountsModal
+            open
+            expenses={allExpenses}
+            periods={periods}
+            onClose={() => setImportOpen(false)}
+            onImported={async () => {
+              await refreshPeriods()
+              await refreshExpenses()
+            }}
+          />
+        </Suspense>
+      )}
+
+      {importStatementOpen && settings && (
+        <Suspense fallback={null}>
+          <CardStatementImportWizard
+            open
+            period={selectedPeriod ?? null}
+            readOnly={isReadOnly}
+            settings={settings}
+            onClose={() => setImportStatementOpen(false)}
+            createExpense={createExpense}
+            updateSettings={updateSettings}
+          />
+        </Suspense>
+      )}
 
       {!isReadOnly && (
         <UndoBar

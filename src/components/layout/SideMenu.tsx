@@ -35,6 +35,7 @@ interface SideMenuProps {
   onOpenSettings: () => void
   onOpenOnboarding: () => void
   onOpenImport: () => void
+  onOpenCardStatementImport: () => void
 }
 
 type SettingField = 'usdWhite' | 'usdCash' | 'monthlyLimit' | null
@@ -50,6 +51,7 @@ export function SideMenu({
   onOpenSettings,
   onOpenOnboarding,
   onOpenImport,
+  onOpenCardStatementImport,
 }: SideMenuProps) {
   const { logout } = useAuthContext()
   const { settings, updateSettings } = useSettingsContext()
@@ -226,6 +228,13 @@ export function SideMenu({
               onClick={() => {
                 onClose()
                 onOpenImport()
+              }}
+            />
+            <MenuButton
+              label="Importar resumen de tarjeta"
+              onClick={() => {
+                onClose()
+                onOpenCardStatementImport()
               }}
             />
           </Section>
