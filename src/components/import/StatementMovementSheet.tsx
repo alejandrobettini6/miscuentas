@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/Button'
 import { CATEGORY_LABELS } from '@/constants/categories'
 import { CategorySuggestionService } from '@/services/cardStatement/CategorySuggestionService'
 import type { ParsedMovement } from '@/services/cardStatement/types'
-import { Category, Currency } from '@/types/enums'
+import { Category } from '@/types/enums'
 import { formatMoneyLabel } from '@/utils/formatters'
 import {
   isValidCustomCategoryName,
@@ -14,7 +14,7 @@ import { useBackButtonClose } from '@/hooks/useBackButtonClose'
 export type MovementCategoryChoice =
   | { kind: 'fixed'; category: Category; detail: string | null }
   | { kind: 'custom'; name: string }
-  | { kind: 'other' }
+  | { kind: 'other'; detail: string | null }
   | { kind: 'new'; name: string; addToList: boolean }
 
 interface StatementMovementSheetProps {
@@ -32,6 +32,10 @@ interface StatementMovementSheetProps {
 
 type Panel = 'main' | 'otros'
 
+function defaultExpenseName(description: string): string {
+  return description.slice(0, 40)
+}
+
 export function StatementMovementSheet({
   open,
   movement,
@@ -47,6 +51,9 @@ export function StatementMovementSheet({
   const [panel, setPanel] = useState<Panel>('main')
   const [detail, setDetail] = useState(movement.description)
   const [selectedFixed, setSelectedFixed] = useState<Category | null>(null)
+  const [otherExpenseName, setOtherExpenseName] = useState(
+    defaultExpenseName(movement.description),
+  )
   const [newName, setNewName] = useState('')
   const [addToList, setAddToList] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -59,9 +66,10 @@ export function StatementMovementSheet({
   useEffect(() => {
     if (!open) return
     setPanel('main')
-    setDetail(movement.description.slice(0, 40))
+    setDetail(defaultExpenseName(movement.description))
     setSelectedFixed(null)
-    setNewName(movement.description.slice(0, 40))
+    setOtherExpenseName(defaultExpenseName(movement.description))
+    setNewName('')
     setAddToList(true)
     setError(null)
   }, [open, movement])
@@ -93,16 +101,32 @@ export function StatementMovementSheet({
     onConfirm({ kind: 'custom', name: normalizeCustomCategoryName(name) })
   }
 
-  const confirmNew = () => {
-    if (!isValidCustomCategoryName(newName)) {
-      setError('Nombre inválido (máx. 40 caracteres)')
+  const confirmOtros = () => {
+    setError(null)
+    const trimmedNew = newName.trim()
+    if (trimmedNew) {
+      if (!isValidCustomCategoryName(trimmedNew)) {
+        setError('Nombre de categoría inválido (máx. 40 caracteres)')
+        return
+      }
+      onConfirm({
+        kind: 'new',
+        name: normalizeCustomCategoryName(trimmedNew),
+        addToList,
+      })
       return
     }
-    onConfirm({
-      kind: 'new',
-      name: normalizeCustomCategoryName(newName),
-      addToList,
-    })
+
+    const trimmedExpense = otherExpenseName.trim()
+    let expenseDetail: string | null = null
+    if (trimmedExpense) {
+      if (!isValidCustomCategoryName(trimmedExpense)) {
+        setError('Nombre del gasto inválido (máx. 40 caracteres)')
+        return
+      }
+      expenseDetail = normalizeCustomCategoryName(trimmedExpense)
+    }
+    onConfirm({ kind: 'other', detail: expenseDetail })
   }
 
   const suggestionLabel =
@@ -114,26 +138,25 @@ export function StatementMovementSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-[var(--overlay)] sm:items-center sm:p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay)] p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Categorizar movimiento"
       onClick={onCancel}
     >
       <div
-        className="flex max-h-[92vh] w-full max-w-md flex-col rounded-t-2xl bg-[var(--surface)] shadow-lg sm:rounded-2xl"
+        className="flex min-w-0 max-h-[92vh] w-full max-w-md flex-col rounded-2xl bg-[var(--surface)] shadow-lg"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="border-b border-[var(--border)] px-5 pb-3 pt-4">
+        <div className="min-w-0 border-b border-[var(--border)] px-5 pb-3 pt-4">
           <p className="text-xs text-[var(--muted)]">
             Movimiento {index + 1} de {total}
           </p>
-          <h2 className="mt-1 text-lg font-semibold leading-snug">
+          <h2 className="mt-1 break-words text-lg font-semibold leading-snug">
             {movement.description}
           </h2>
           <p className="mt-1 text-base font-medium tabular-nums">
             {formatMoneyLabel(movement.amount, movement.currency)}
-            {movement.currency === Currency.USD ? '' : ''}
             {movement.installment ? (
               <span className="ml-2 text-sm font-normal text-[var(--muted)]">
                 Cuota {movement.installment}
@@ -147,7 +170,7 @@ export function StatementMovementSheet({
           </p>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+        <div className="min-w-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
           {panel === 'main' ? (
             <>
               {suggestionLabel ? (
@@ -158,7 +181,7 @@ export function StatementMovementSheet({
                   <button
                     type="button"
                     disabled={busy}
-                    className="rounded-xl border border-[var(--blue)] bg-[var(--fill)] px-3 py-2 text-sm font-medium text-[var(--blue)] active:bg-[var(--press)] disabled:opacity-50"
+                    className="max-w-full break-words rounded-xl border border-[var(--blue)] bg-[var(--fill)] px-3 py-2 text-left text-sm font-medium whitespace-normal text-[var(--blue)] active:bg-[var(--press)] disabled:opacity-50"
                     onClick={() => {
                       if (suggestion?.kind === 'fixed') {
                         setSelectedFixed(suggestion.category)
@@ -248,14 +271,6 @@ export function StatementMovementSheet({
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                   Otros
                 </p>
-                <button
-                  type="button"
-                  disabled={busy}
-                  className="mb-3 w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-left text-sm active:bg-[var(--press)] disabled:opacity-50"
-                  onClick={() => onConfirm({ kind: 'other' })}
-                >
-                  Otros (sin nombre)
-                </button>
 
                 {customCategories.length > 0 ? (
                   <div className="mb-4 flex flex-wrap gap-2">
@@ -264,7 +279,7 @@ export function StatementMovementSheet({
                         key={name}
                         type="button"
                         disabled={busy}
-                        className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm active:bg-[var(--press)] disabled:opacity-50"
+                        className="max-w-full break-words rounded-xl border border-[var(--border)] px-3 py-2 text-left text-sm whitespace-normal active:bg-[var(--press)] disabled:opacity-50"
                         onClick={() => confirmCustom(name)}
                       >
                         {name}
@@ -273,14 +288,27 @@ export function StatementMovementSheet({
                   </div>
                 ) : null}
 
+                <label className="mb-1 block text-sm text-[var(--muted)]">
+                  Nombre del gasto (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={otherExpenseName}
+                  maxLength={40}
+                  disabled={busy}
+                  className="mb-4 w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 text-base outline-none focus:border-[var(--blue)]"
+                  onChange={(event) => setOtherExpenseName(event.target.value)}
+                />
+
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                  Nueva categoría
+                  Nueva categoría (opcional)
                 </p>
                 <input
                   type="text"
                   value={newName}
                   maxLength={40}
                   disabled={busy}
+                  placeholder="Solo si querés crear otra categoría"
                   className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 text-base outline-none focus:border-[var(--blue)]"
                   onChange={(event) => setNewName(event.target.value)}
                 />
@@ -288,15 +316,15 @@ export function StatementMovementSheet({
                   <input
                     type="checkbox"
                     checked={addToList}
-                    disabled={busy}
+                    disabled={busy || !newName.trim()}
                     onChange={(event) => setAddToList(event.target.checked)}
                   />
                   Agregar a mi lista
                 </label>
                 <Button
                   className="mt-3 w-full"
-                  disabled={busy || !newName.trim()}
-                  onClick={confirmNew}
+                  disabled={busy}
+                  onClick={confirmOtros}
                 >
                   Confirmar y siguiente
                 </Button>
@@ -307,7 +335,7 @@ export function StatementMovementSheet({
           {error ? <p className="text-sm text-[var(--red)]">{error}</p> : null}
         </div>
 
-        <div className="flex gap-2 border-t border-[var(--border)] px-5 py-3">
+        <div className="flex shrink-0 gap-2 border-t border-[var(--border)] px-5 py-3">
           <Button
             variant="secondary"
             className="flex-1"

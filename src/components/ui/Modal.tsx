@@ -6,16 +6,18 @@ interface ModalProps {
   title: string
   children: ReactNode
   onClose?: () => void
+  /** Encima de otros modales (p. ej. confirmación mientras Ver detalle sigue abierto). */
+  elevated?: boolean
 }
 
-export function Modal({ open, title, children, onClose }: ModalProps) {
+export function Modal({ open, title, children, onClose, elevated }: ModalProps) {
   useBackButtonClose(open, onClose)
 
   if (!open) return null
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
+      className={`fixed inset-0 flex items-center justify-center bg-[var(--overlay)] p-4 ${elevated ? 'z-[60]' : 'z-50'}`}
       role="dialog"
       aria-modal="true"
       aria-label={title}

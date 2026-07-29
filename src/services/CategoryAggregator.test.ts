@@ -93,7 +93,10 @@ describe('CategoryAggregator', () => {
       }),
     ]
 
-    const rows = CategoryAggregator.buildRows(expenses, AccountType.WHITE)
+    const rows = CategoryAggregator.buildRows(expenses, AccountType.WHITE, [
+      'Guitarra',
+      'Ventanal',
+    ])
     const otros = rows.find((r) => r.label === 'Otros' && !r.isOtrosGrande)
     const guitarra = rows.find((r) => r.label === 'Guitarra')
     const ventanal = rows.find((r) => r.label === 'Ventanal')
@@ -122,10 +125,45 @@ describe('CategoryAggregator', () => {
         usdAmount: 5,
       }),
     ]
-    const rows = CategoryAggregator.buildRows(expenses, AccountType.WHITE)
+    const rows = CategoryAggregator.buildRows(expenses, AccountType.WHITE, ['Taxi'])
     const named = rows.filter((r) => r.isOtrosGrande)
     expect(named).toHaveLength(1)
     expect(named[0]?.totalUsd).toBe(15)
+  })
+
+  it('agrupa importes Otros con nombre de comercio en fila Otros general', () => {
+    const expenses = [
+      expense({
+        category: Category.OTHER,
+        description: 'MERPAGO*FOO',
+        originalAmount: 10,
+        usdAmount: 10,
+      }),
+      expense({
+        category: Category.OTHER,
+        description: 'MERPAGO*BAR',
+        originalAmount: 5,
+        usdAmount: 5,
+      }),
+      expense({
+        category: Category.OTHER,
+        description: null,
+        originalAmount: 2,
+        usdAmount: 2,
+      }),
+    ]
+    const rows = CategoryAggregator.buildRows(expenses, AccountType.WHITE, [])
+    const otros = rows.find((r) => r.label === 'Otros' && !r.isOtrosGrande)
+    expect(otros?.totalUsd).toBe(17)
+    expect(rows.filter((r) => r.isOtrosGrande)).toHaveLength(0)
+
+    const items = CategoryAggregator.expensesForRow(
+      expenses,
+      AccountType.WHITE,
+      otros!,
+      [],
+    )
+    expect(items).toHaveLength(3)
   })
 
   it('suma Devoluciones como monto negativo', () => {
