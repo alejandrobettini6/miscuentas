@@ -22,14 +22,15 @@ export class CategoryAggregator {
       rows.push(buildFixedRow(category, items, accountingCurrency, rates))
     }
 
-    const otherGeneral = accountExpenses.filter(
-      (e) => e.category === Category.OTHER && !e.description,
+    const otherGeneral = accountExpenses.filter((e) =>
+      isOtrosGeneralExpense(e, customCategories),
     )
     rows.push(buildFixedRow(Category.OTHER, otherGeneral, accountingCurrency, rates))
 
     const grandesMap = new Map<string, Expense[]>()
     for (const expense of accountExpenses) {
       if (expense.category !== Category.OTHER || !expense.description) continue
+      if (!isListedCustomCategory(expense.description, customCategories)) continue
       const key = expense.description.toLowerCase()
       const list = grandesMap.get(key) ?? []
       list.push(expense)
@@ -72,10 +73,11 @@ export class CategoryAggregator {
     expenses: Expense[],
     accountType: AccountType,
     row: Pick<CategoryRow, 'category' | 'description' | 'isOtrosGrande'>,
+    customCategories: string[] = [],
   ): Expense[] {
     return expenses
       .filter((e) => e.accountType === accountType)
-      .filter((e) => matchesRow(e, row))
+      .filter((e) => matchesRow(e, row, customCategories))
       .sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       )
@@ -87,8 +89,9 @@ export class CategoryAggregator {
     row: Pick<CategoryRow, 'category' | 'description' | 'isOtrosGrande'>,
     accountingCurrency: Currency = Currency.USD,
     rates: ExchangeRates = { usdWhite: 1, usdCash: 1 },
+    customCategories: string[] = [],
   ): { totalWhite: number; totalCash: number } {
-    const matched = expenses.filter((e) => matchesRow(e, row))
+    const matched = expenses.filter((e) => matchesRow(e, row, customCategories))
     return {
       totalWhite: round(
         matched
@@ -104,9 +107,27 @@ export class CategoryAggregator {
   }
 }
 
+function isListedCustomCategory(
+  description: string,
+  customCategories: string[],
+): boolean {
+  const lower = description.trim().toLowerCase()
+  return customCategories.some((c) => c.trim().toLowerCase() === lower)
+}
+
+function isOtrosGeneralExpense(
+  expense: Expense,
+  customCategories: string[],
+): boolean {
+  if (expense.category !== Category.OTHER) return false
+  if (!expense.description) return true
+  return !isListedCustomCategory(expense.description, customCategories)
+}
+
 function matchesRow(
   expense: Expense,
   row: Pick<CategoryRow, 'category' | 'description' | 'isOtrosGrande'>,
+  customCategories: string[],
 ): boolean {
   if (expense.category !== row.category) return false
   if (row.isOtrosGrande || row.category === Category.OTHER) {
@@ -116,12 +137,10 @@ function matchesRow(
         expense.description!.toLowerCase() === (row.description ?? '').toLowerCase()
       )
     }
-    // Fila Otros general: solo sin description
     if (row.category === Category.OTHER && !row.isOtrosGrande) {
-      return !expense.description
+      return isOtrosGeneralExpense(expense, customCategories)
     }
   }
-  // Categoría fija: todos los de esa category
   return true
 }
 

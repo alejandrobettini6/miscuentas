@@ -218,7 +218,7 @@ export function CardStatementImportWizard({
         description = choice.name
       } else if (choice.kind === 'other') {
         category = Category.OTHER
-        description = null
+        description = choice.detail
       } else {
         if (!isValidCustomCategoryName(choice.name)) {
           throw new Error('Nombre inválido')

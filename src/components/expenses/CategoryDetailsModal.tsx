@@ -45,7 +45,8 @@ export function CategoryDetailsModal({
 
   const accountTotal =
     accountType === AccountType.WHITE ? totalWhite : totalCash
-  const showDetailLabel = row.category !== Category.OTHER && !row.isOtrosGrande
+  const isOtrosGeneralRow =
+    row.category === Category.OTHER && !row.isOtrosGrande
   const canDeleteCategory = row.isOtrosGrande && Boolean(onRemoveCategory)
   const showBoth =
     enabledAccounts.includes(AccountType.WHITE) &&
@@ -88,9 +89,14 @@ export function CategoryDetailsModal({
       ) : (
         <ul className="mb-4 max-h-72 space-y-3 overflow-y-auto">
           {items.map((expense) => {
-            const detail = showDetailLabel
-              ? (expense.description ?? 'Varios')
-              : null
+            let detail: string | null = null
+            if (row.isOtrosGrande) {
+              detail = null
+            } else if (isOtrosGeneralRow) {
+              detail = expense.description?.trim() ? expense.description : null
+            } else {
+              detail = expense.description ?? 'Varios'
+            }
             return (
               <li
                 key={expense.id}
@@ -109,7 +115,7 @@ export function CategoryDetailsModal({
                     </span>
                   </div>
                   {detail && (
-                    <p className="mt-1 text-sm font-medium text-[var(--text)]">
+                    <p className="mt-1 break-words text-sm font-medium text-[var(--text)]">
                       {detail}
                     </p>
                   )}

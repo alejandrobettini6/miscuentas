@@ -206,7 +206,6 @@ export function HomePage() {
   const handleDeleteExpenseFromDetails = useCallback(
     (expense: Expense) => {
       if (isReadOnly) return
-      setDetailsRow(null)
       setDeleteTarget(expense)
     },
     [isReadOnly],
@@ -216,14 +215,17 @@ export function HomePage() {
     setRemoveCategoryTarget(row)
   }, [])
 
+  const customCategories = settings?.customCategories ?? []
+
   const detailsItems = useMemo(() => {
     if (!detailsRow) return []
     return CategoryAggregator.expensesForRow(
       visibleExpenses,
       accountType,
       detailsRow,
+      customCategories,
     )
-  }, [detailsRow, visibleExpenses, accountType])
+  }, [detailsRow, visibleExpenses, accountType, customCategories])
 
   const detailsAccountTotals = useMemo(() => {
     if (!detailsRow) return { totalWhite: 0, totalCash: 0 }
@@ -232,8 +234,9 @@ export function HomePage() {
       detailsRow,
       accountingCurrency,
       rates,
+      customCategories,
     )
-  }, [detailsRow, visibleExpenses, accountingCurrency, rates])
+  }, [detailsRow, visibleExpenses, accountingCurrency, rates, customCategories])
 
   const clearUndo = useCallback(() => {
     setUndoDeadline(null)
@@ -613,6 +616,7 @@ export function HomePage() {
       <Modal
         open={deleteTarget !== null}
         title="Eliminar movimiento"
+        elevated={detailsRow !== null}
         onClose={() => setDeleteTarget(null)}
       >
         <p className="mb-4 text-[var(--muted)]">
