@@ -19,7 +19,7 @@ import {
 import { yearHintFromYearMonth } from '@/services/cardStatement/parseAmount'
 import type { ParsedMovement } from '@/services/cardStatement/types'
 import { AccountType, Category } from '@/types/enums'
-import type { CreateExpenseInput, Period, Settings } from '@/types/models'
+import type { CreateExpenseInput, Expense, Period, Settings } from '@/types/models'
 import { formatMoneyLabel } from '@/utils/formatters'
 import { getErrorMessage } from '@/utils/errors'
 import {
@@ -49,6 +49,7 @@ interface CardStatementImportWizardProps {
   settings: Settings
   onClose: () => void
   createExpense: (input: CreateExpenseInput) => Promise<unknown>
+  removeExpense: (id: string) => Promise<unknown>
   updateSettings: (input: { customCategories: string[] }) => Promise<unknown>
 }
 
@@ -59,6 +60,7 @@ export function CardStatementImportWizard({
   settings,
   onClose,
   createExpense,
+  removeExpense,
   updateSettings,
 }: CardStatementImportWizardProps) {
   const fileRef = useRef<HTMLInputElement>(null)
@@ -73,6 +75,9 @@ export function CardStatementImportWizard({
   const [queueIndex, setQueueIndex] = useState(0)
   const [createdCount, setCreatedCount] = useState(0)
   const [skippedCount, setSkippedCount] = useState(0)
+  const [createdExpenseIds, setCreatedExpenseIds] = useState<(string | null)[]>(
+    [],
+  )
   const [sheetBusy, setSheetBusy] = useState(false)
 
   const { settings: liveSettings } = useSettingsContext()
@@ -98,6 +103,7 @@ export function CardStatementImportWizard({
     setQueueIndex(0)
     setCreatedCount(0)
     setSkippedCount(0)
+    setCreatedExpenseIds([])
     setSheetBusy(false)
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -166,7 +172,17 @@ export function CardStatementImportWizard({
     setQueueIndex(0)
     setCreatedCount(0)
     setSkippedCount(0)
+    setCreatedExpenseIds([])
     setStep('categorize')
+  }
+
+  const handleSkip = () => {
+    setCreatedExpenseIds((prev) => {
+      const next = [...prev]
+      next[queueIndex] = null
+      return next
+    })
+    advanceQueue(true)
   }
 
   const advanceQueue = (skipped: boolean) => {
@@ -231,17 +247,52 @@ export function CardStatementImportWizard({
         description = name
       }
 
-      await createExpense({
+      const expense = (await createExpense({
         periodId: period.id,
         accountType: AccountType.WHITE,
         category,
         description,
         originalAmount: movement.amount,
         originalCurrency: movement.currency,
+      })) as Expense
+      setCreatedExpenseIds((prev) => {
+        const next = [...prev]
+        next[queueIndex] = expense.id
+        return next
       })
       advanceQueue(false)
     } catch (err) {
       toast.error(getErrorMessage(err, 'No se pudo registrar el movimiento'))
+    } finally {
+      setSheetBusy(false)
+    }
+  }
+
+  const handleBack = async () => {
+    if (sheetBusy) return
+    if (queueIndex === 0) {
+      setStep('preview')
+      return
+    }
+
+    setSheetBusy(true)
+    try {
+      const prevIndex = queueIndex - 1
+      const expenseId = createdExpenseIds[prevIndex]
+      if (expenseId) {
+        await removeExpense(expenseId)
+        setCreatedCount((count) => count - 1)
+        setCreatedExpenseIds((prev) => {
+          const next = [...prev]
+          next[prevIndex] = null
+          return next
+        })
+      } else {
+        setSkippedCount((count) => count - 1)
+      }
+      setQueueIndex(prevIndex)
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'No se pudo retroceder'))
     } finally {
       setSheetBusy(false)
     }
@@ -502,7 +553,8 @@ export function CardStatementImportWizard({
           customCategories={effectiveSettings.customCategories}
           busy={sheetBusy}
           onConfirm={(choice) => void handleConfirm(choice)}
-          onSkip={() => advanceQueue(true)}
+          onSkip={handleSkip}
+          onBack={() => void handleBack()}
           onCancel={handleClose}
         />
       ) : null}

@@ -83,6 +83,25 @@ export class CategoryAggregator {
       )
   }
 
+  static matchesExpenseToRow(
+    expense: Expense,
+    row: Pick<CategoryRow, 'category' | 'description' | 'isOtrosGrande'>,
+    customCategories: string[] = [],
+  ): boolean {
+    return matchesRow(expense, row, customCategories)
+  }
+
+  /** Fila de categoría que contiene un gasto, o null si no encaja en ninguna. */
+  static findRowForExpense(
+    expense: Expense,
+    rows: CategoryRow[],
+    customCategories: string[] = [],
+  ): CategoryRow | null {
+    return (
+      rows.find((row) => matchesRow(expense, row, customCategories)) ?? null
+    )
+  }
+
   /** Totales Blanco/Negro de una categoría específica (ambas cuentas). */
   static accountTotalsForRow(
     expenses: Expense[],
