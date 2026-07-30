@@ -27,6 +27,7 @@ interface StatementMovementSheetProps {
   busy?: boolean
   onConfirm: (choice: MovementCategoryChoice) => void
   onSkip: () => void
+  onBack: () => void
   onCancel: () => void
 }
 
@@ -46,6 +47,7 @@ export function StatementMovementSheet({
   busy = false,
   onConfirm,
   onSkip,
+  onBack,
   onCancel,
 }: StatementMovementSheetProps) {
   const [panel, setPanel] = useState<Panel>('main')
@@ -79,7 +81,7 @@ export function StatementMovementSheet({
       setPanel('main')
       return
     }
-    onCancel()
+    onBack()
   })
 
   if (!open) return null
@@ -335,18 +337,28 @@ export function StatementMovementSheet({
           {error ? <p className="text-sm text-[var(--red)]">{error}</p> : null}
         </div>
 
-        <div className="flex shrink-0 gap-2 border-t border-[var(--border)] px-5 py-3">
-          <Button
-            variant="secondary"
-            className="flex-1"
-            disabled={busy}
-            onClick={onSkip}
-          >
-            Omitir
-          </Button>
+        <div className="shrink-0 space-y-2 border-t border-[var(--border)] px-5 py-3">
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              disabled={busy}
+              onClick={onBack}
+            >
+              Atrás
+            </Button>
+            <Button
+              variant="secondary"
+              className="flex-1"
+              disabled={busy}
+              onClick={onSkip}
+            >
+              Omitir
+            </Button>
+          </div>
           <Button
             variant="ghost"
-            className="flex-1"
+            className="w-full"
             disabled={busy}
             onClick={onCancel}
           >

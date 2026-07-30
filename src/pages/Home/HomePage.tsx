@@ -800,6 +800,7 @@ export function HomePage() {
             settings={settings}
             onClose={() => setImportStatementOpen(false)}
             createExpense={createExpense}
+            removeExpense={removeExpense}
             updateSettings={updateSettings}
           />
         </Suspense>
