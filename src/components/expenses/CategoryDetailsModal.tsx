@@ -1,8 +1,9 @@
 import { Pencil, Trash2 } from 'lucide-react'
 import { ACCOUNT_LABELS } from '@/constants/categories'
-import { AccountType, Category, Currency } from '@/types/enums'
+import { AccountType, Currency } from '@/types/enums'
 import type { CategoryRow, Expense } from '@/types/models'
 import { accountingAmount, type ExchangeRates } from '@/services/AccountingCurrency'
+import { expenseDetailLabel } from '@/services/ExpenseSearchService'
 import { formatDetailTimestamp } from '@/utils/date'
 import { formatMoneyLabel } from '@/utils/formatters'
 import { Modal } from '@/components/ui/Modal'
@@ -45,8 +46,6 @@ export function CategoryDetailsModal({
 
   const accountTotal =
     accountType === AccountType.WHITE ? totalWhite : totalCash
-  const isOtrosGeneralRow =
-    row.category === Category.OTHER && !row.isOtrosGrande
   const canDeleteCategory = row.isOtrosGrande && Boolean(onRemoveCategory)
   const showBoth =
     enabledAccounts.includes(AccountType.WHITE) &&
@@ -89,14 +88,7 @@ export function CategoryDetailsModal({
       ) : (
         <ul className="mb-4 max-h-72 space-y-3 overflow-y-auto">
           {items.map((expense) => {
-            let detail: string | null = null
-            if (row.isOtrosGrande) {
-              detail = null
-            } else if (isOtrosGeneralRow) {
-              detail = expense.description?.trim() ? expense.description : null
-            } else {
-              detail = expense.description ?? 'Varios'
-            }
+            const detail = expenseDetailLabel(row, expense)
             return (
               <li
                 key={expense.id}

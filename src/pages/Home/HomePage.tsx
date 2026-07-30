@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import toast from 'react-hot-toast'
 import { AddCategoryRow } from '@/components/expenses/AddCategoryRow'
 import { CategoryRow } from '@/components/expenses/CategoryRow'
+import { ExpenseSearchResultRow } from '@/components/expenses/ExpenseSearchResultRow'
 import { Header } from '@/components/layout/Header'
 import { SideMenu } from '@/components/layout/SideMenu'
 import { UndoBar, createUndoDeadline } from '@/components/layout/UndoBar'
@@ -49,6 +50,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { usePeriods } from '@/hooks/usePeriods'
 import { useSummary } from '@/hooks/useSummary'
 import { CategoryAggregator } from '@/services/CategoryAggregator'
+import { ExpenseSearchService } from '@/services/ExpenseSearchService'
 import { VisibilityProjector } from '@/services/VisibilityProjector'
 import { AccountType, Category, Currency, MonthMode, PeriodStatus, SummaryDisplayMode } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel, Expense } from '@/types/models'
@@ -118,6 +120,10 @@ export function HomePage() {
   const [undoDeadline, setUndoDeadline] = useState<number | null>(null)
   const [undoExpenseId, setUndoExpenseId] = useState<string | null>(null)
   const [busyRowKey, setBusyRowKey] = useState<string | null>(null)
+  const [searchQueries, setSearchQueries] = useState<Record<AccountType, string>>({
+    [AccountType.WHITE]: '',
+    [AccountType.CASH]: '',
+  })
 
   useEffect(() => {
     if (!settings) return
@@ -153,10 +159,37 @@ export function HomePage() {
     )
   }, [allExpenses, settings, selectedPeriod])
 
+  const customCategories = settings?.customCategories ?? []
+
   const { summary, color, progress, rows, accountingCurrency, rates } = useSummary(
     visibleExpenses,
     accountType,
   )
+
+  const activeSearchQuery = searchQueries[accountType]
+  const isSearching = activeSearchQuery.trim().length > 0
+
+  const searchResults = useMemo(() => {
+    if (!isSearching) return []
+    return ExpenseSearchService.search({
+      query: activeSearchQuery,
+      rows,
+      expenses: visibleExpenses,
+      accountType,
+      customCategories,
+      accountingCurrency,
+      rates,
+    })
+  }, [
+    isSearching,
+    activeSearchQuery,
+    rows,
+    visibleExpenses,
+    accountType,
+    customCategories,
+    accountingCurrency,
+    rates,
+  ])
 
   const rowKey = useCallback(
     (row: CategoryRowModel) => `${row.category}:${row.description ?? ''}`,
@@ -189,6 +222,30 @@ export function HomePage() {
     [isReadOnly],
   )
 
+  const handleEditSearchResult = useCallback(
+    (row: CategoryRowModel, expense: Expense) => {
+      if (isReadOnly) return
+      setAmountMode({ type: 'edit', row, expense })
+    },
+    [isReadOnly],
+  )
+
+  const handleDeleteSearchResult = useCallback(
+    (expense: Expense) => {
+      if (isReadOnly) return
+      setDeleteTarget(expense)
+    },
+    [isReadOnly],
+  )
+
+  const searchResultKey = useCallback(
+    (result: (typeof searchResults)[number]) =>
+      result.kind === 'category'
+        ? rowKey(result.row)
+        : `${rowKey(result.row)}:${result.expense.id}`,
+    [rowKey],
+  )
+
   const handleViewDetailsRow = useCallback((row: CategoryRowModel) => {
     setDetailsRow(row)
   }, [])
@@ -214,8 +271,6 @@ export function HomePage() {
   const handleRemoveCategoryRow = useCallback((row: CategoryRowModel) => {
     setRemoveCategoryTarget(row)
   }, [])
-
-  const customCategories = settings?.customCategories ?? []
 
   const detailsItems = useMemo(() => {
     if (!detailsRow) return []
@@ -558,9 +613,51 @@ export function HomePage() {
         />
       </div>
 
+      <div className="mt-3">
+        <input
+          type="search"
+          value={activeSearchQuery}
+          placeholder="Buscar categoría o gasto…"
+          disabled={isLoading}
+          className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-base outline-none focus:border-[var(--blue)] disabled:opacity-50"
+          onChange={(event) =>
+            setSearchQueries((prev) => ({
+              ...prev,
+              [accountType]: event.target.value,
+            }))
+          }
+        />
+      </div>
+
       <section className="mt-2 rounded-2xl bg-[var(--surface)] px-3">
         {isLoading ? (
           <p className="py-8 text-center text-[var(--muted)]">Cargando…</p>
+        ) : isSearching ? (
+          searchResults.length === 0 ? (
+            <p className="py-8 text-center text-sm text-[var(--muted)]">
+              Sin resultados para «{activeSearchQuery.trim()}»
+            </p>
+          ) : (
+            searchResults.map((result) => (
+              <ExpenseSearchResultRow
+                key={searchResultKey(result)}
+                result={result}
+                accountingCurrency={accountingCurrency}
+                rates={rates}
+                disabled={locked}
+                canRemoveCategory={
+                  result.kind === 'category'
+                    ? canRemoveCustomCategory(result.row)
+                    : false
+                }
+                onRegister={handleRegisterRow}
+                onEdit={handleEditSearchResult}
+                onDelete={handleDeleteSearchResult}
+                onViewDetails={handleViewDetailsRow}
+                onRemoveCategory={handleRemoveCategoryRow}
+              />
+            ))
+          )
         ) : (
           <>
             {rows.map((row) => (
