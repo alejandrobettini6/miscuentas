@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS } from '@/constants/categories'
 import { AccountType, Category, Currency } from '@/types/enums'
-import type { Expense, Settings } from '@/types/models'
+import type { Expense, Income, Settings } from '@/types/models'
 
 export const PERIOD_ID = '11111111-1111-4111-8111-111111111111'
 
@@ -11,6 +11,7 @@ export function testSettings(partial: Partial<Settings> = {}): Settings {
     usdCash: DEFAULT_SETTINGS.usdCash,
     monthlyLimit: DEFAULT_SETTINGS.monthlyLimit,
     customCategories: [...DEFAULT_SETTINGS.customCategories],
+    incomeSources: [...DEFAULT_SETTINGS.incomeSources],
     enabledAccounts: [...DEFAULT_SETTINGS.enabledAccounts],
     enabledCurrencies: [...DEFAULT_SETTINGS.enabledCurrencies],
     enabledFixedCategories: [...DEFAULT_SETTINGS.enabledFixedCategories],
@@ -18,6 +19,23 @@ export function testSettings(partial: Partial<Settings> = {}): Settings {
     accountingCurrency: DEFAULT_SETTINGS.accountingCurrency,
     summaryDisplayMode: DEFAULT_SETTINGS.summaryDisplayMode,
     onboardingCompleted: true,
+    updatedAt: new Date().toISOString(),
+    ...partial,
+  }
+}
+
+export function testIncome(partial: Partial<Income> = {}): Income {
+  return {
+    id: crypto.randomUUID(),
+    userId: 'u',
+    periodId: PERIOD_ID,
+    accountType: AccountType.WHITE,
+    description: 'Trabajo',
+    originalCurrency: Currency.USD,
+    originalAmount: 1000,
+    exchangeRate: 1,
+    usdAmount: 1000,
+    createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...partial,
   }

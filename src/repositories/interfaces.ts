@@ -2,10 +2,13 @@ import type {
   CreateExpenseInput,
   Expense,
   ImportAccountsPayload,
+  Income,
   Period,
   Settings,
   UpdateExpenseInput,
   UpdateSettingsInput,
+  CreateIncomeInput,
+  UpdateIncomeInput,
   User,
 } from '@/types/models'
 
@@ -65,6 +68,19 @@ export interface ExpenseRepository {
   replaceAll(userId: string, expenses: Expense[]): Promise<void>
 }
 
+export interface IncomeRepository {
+  list(userId: string): Promise<Income[]>
+  create(userId: string, input: CreateIncomeInput, settings: Settings): Promise<Income>
+  update(
+    userId: string,
+    incomeId: string,
+    input: UpdateIncomeInput,
+    settings: Settings,
+  ): Promise<Income>
+  remove(userId: string, incomeId: string): Promise<void>
+  replaceAll(userId: string, incomes: Income[]): Promise<void>
+}
+
 export interface ImportRepository {
   replaceAll(userId: string, payload: NormalizedImportPayload): Promise<void>
 }
@@ -73,5 +89,6 @@ export interface NormalizedImportPayload {
   settings: Settings
   periods: Period[]
   expenses: Expense[]
+  incomes: Income[]
   source: ImportAccountsPayload
 }

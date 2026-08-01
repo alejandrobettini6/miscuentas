@@ -2,17 +2,20 @@ import { getDataMode } from '@/config/env'
 import { LocalAuthRepository } from './local/LocalAuthRepository'
 import { LocalExpenseRepository } from './local/LocalExpenseRepository'
 import { LocalImportRepository } from './local/LocalImportRepository'
+import { LocalIncomeRepository } from './local/LocalIncomeRepository'
 import { LocalPeriodRepository } from './local/LocalPeriodRepository'
 import { LocalSettingsRepository } from './local/LocalSettingsRepository'
 import { SupabaseAuthRepository } from './supabase/SupabaseAuthRepository'
 import { SupabaseExpenseRepository } from './supabase/SupabaseExpenseRepository'
 import { SupabaseImportRepository } from './supabase/SupabaseImportRepository'
+import { SupabaseIncomeRepository } from './supabase/SupabaseIncomeRepository'
 import { SupabasePeriodRepository } from './supabase/SupabasePeriodRepository'
 import { SupabaseSettingsRepository } from './supabase/SupabaseSettingsRepository'
 import type {
   AuthRepository,
   ExpenseRepository,
   ImportRepository,
+  IncomeRepository,
   PeriodRepository,
   SettingsRepository,
 } from './interfaces'
@@ -20,6 +23,7 @@ import type {
 let authRepo: AuthRepository | null = null
 let settingsRepo: SettingsRepository | null = null
 let expenseRepo: ExpenseRepository | null = null
+let incomeRepo: IncomeRepository | null = null
 let periodRepo: PeriodRepository | null = null
 let importRepo: ImportRepository | null = null
 
@@ -51,6 +55,16 @@ export function getExpenseRepository(): ExpenseRepository {
         : new LocalExpenseRepository()
   }
   return expenseRepo
+}
+
+export function getIncomeRepository(): IncomeRepository {
+  if (!incomeRepo) {
+    incomeRepo =
+      getDataMode() === 'supabase'
+        ? new SupabaseIncomeRepository()
+        : new LocalIncomeRepository()
+  }
+  return incomeRepo
 }
 
 export function getPeriodRepository(): PeriodRepository {

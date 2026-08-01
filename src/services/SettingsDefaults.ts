@@ -83,6 +83,7 @@ export function createDefaultSettings(userId: string, now = new Date()): Setting
     usdCash: DEFAULT_SETTINGS.usdCash,
     monthlyLimit: DEFAULT_SETTINGS.monthlyLimit,
     customCategories: [...DEFAULT_SETTINGS.customCategories],
+    incomeSources: [...DEFAULT_SETTINGS.incomeSources],
     enabledAccounts: [...DEFAULT_SETTINGS.enabledAccounts],
     enabledCurrencies: [...DEFAULT_SETTINGS.enabledCurrencies],
     enabledFixedCategories: [...DEFAULT_SETTINGS.enabledFixedCategories],
@@ -106,6 +107,7 @@ export function normalizeSettings(
     usdCash: Number(raw.usdCash ?? DEFAULT_SETTINGS.usdCash),
     monthlyLimit: Number(raw.monthlyLimit ?? DEFAULT_SETTINGS.monthlyLimit),
     customCategories: Array.isArray(raw.customCategories) ? raw.customCategories : [],
+    incomeSources: Array.isArray(raw.incomeSources) ? raw.incomeSources : [],
     enabledAccounts: normalizeEnabledAccounts(raw.enabledAccounts),
     enabledCurrencies,
     enabledFixedCategories: normalizeEnabledFixedCategories(raw.enabledFixedCategories),
@@ -157,6 +159,7 @@ export function mergeSettingsUpdate(
     usdCash: input.usdCash ?? current.usdCash,
     monthlyLimit: input.monthlyLimit ?? current.monthlyLimit,
     customCategories: input.customCategories ?? current.customCategories,
+    incomeSources: input.incomeSources ?? current.incomeSources,
     enabledAccounts,
     enabledCurrencies,
     enabledFixedCategories:

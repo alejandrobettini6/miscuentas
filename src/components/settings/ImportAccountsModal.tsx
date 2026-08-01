@@ -7,13 +7,14 @@ import { useSettingsContext } from '@/contexts/SettingsContext'
 import { getImportRepository } from '@/repositories'
 import { ExportService } from '@/services/ExportService'
 import { ImportService } from '@/services/ImportService'
-import type { Expense, Period } from '@/types/models'
+import type { Expense, Income, Period } from '@/types/models'
 import type { NormalizedImportPayload } from '@/repositories/interfaces'
 import { getErrorMessage } from '@/utils/errors'
 
 interface ImportAccountsModalProps {
   open: boolean
   expenses: Expense[]
+  incomes?: Income[]
   periods: Period[]
   onClose: () => void
   onImported: () => Promise<void>
@@ -22,6 +23,7 @@ interface ImportAccountsModalProps {
 export function ImportAccountsModal({
   open,
   expenses,
+  incomes = [],
   periods,
   onClose,
   onImported,
@@ -61,7 +63,7 @@ export function ImportAccountsModal({
     if (!settings) return
     ExportService.download(
       'miscuentas-backup-antes-importar.json',
-      ExportService.toJson(expenses, settings, periods),
+      ExportService.toJson(expenses, settings, periods, incomes),
       'application/json',
     )
     setBackupDone(true)

@@ -38,21 +38,24 @@ const SettingsPanel = lazy(() =>
   })),
 )
 import { MonthlySummaryCard } from '@/components/summary/MonthlySummaryCard'
+import { IncomePanel } from '@/components/income/IncomePanel'
 import { AmountSheet } from '@/components/ui/AmountSheet'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Tabs } from '@/components/ui/Tabs'
+import { ViewTabs } from '@/components/ui/ViewTabs'
 import { CATEGORY_LABELS, DEFAULT_SETTINGS } from '@/constants/categories'
 import { useSettingsContext } from '@/contexts/SettingsContext'
 import { useAmountsVisibility } from '@/hooks/useAmountsVisibility'
 import { useExpenses } from '@/hooks/useExpenses'
+import { useIncomes } from '@/hooks/useIncomes'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { usePeriods } from '@/hooks/usePeriods'
 import { useSummary } from '@/hooks/useSummary'
 import { CategoryAggregator } from '@/services/CategoryAggregator'
 import { ExpenseSearchService } from '@/services/ExpenseSearchService'
 import { VisibilityProjector } from '@/services/VisibilityProjector'
-import { AccountType, Category, Currency, MonthMode, PeriodStatus, SummaryDisplayMode } from '@/types/enums'
+import { AccountType, Category, Currency, MonthMode, PeriodStatus, SummaryDisplayMode, ViewMode } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel, Expense } from '@/types/models'
 import { getMonthLabelFromKey, getYearMonthKey, nextYearMonth } from '@/utils/date'
 import { getErrorMessage } from '@/utils/errors'
@@ -75,9 +78,18 @@ export function HomePage() {
     createExpense,
     updateExpense,
     removeExpense,
-    isMutating,
+    isMutating: isExpenseMutating,
     refresh: refreshExpenses,
   } = useExpenses()
+  const {
+    incomes: allIncomes,
+    isLoading: isIncomesLoading,
+    createIncome,
+    updateIncome,
+    removeIncome,
+    isMutating: isIncomeMutating,
+    refresh: refreshIncomes,
+  } = useIncomes()
   const {
     periods,
     activePeriod,
@@ -99,6 +111,7 @@ export function HomePage() {
     Currency.ARS,
   ]
 
+  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.EXPENSES)
   const [accountType, setAccountType] = useState<AccountType>(
     enabledAccounts[0] ?? AccountType.WHITE,
   )
@@ -196,7 +209,8 @@ export function HomePage() {
     [],
   )
 
-  const locked = isMutating || isClosing || busyRowKey !== null || isReadOnly
+  const locked = isExpenseMutating || isIncomeMutating || isClosing || busyRowKey !== null || isReadOnly
+  const isLoadingData = isLoading || isIncomesLoading
 
   const handleRegisterRow = useCallback(
     (row: CategoryRowModel) => {
@@ -593,6 +607,28 @@ export function HomePage() {
         </p>
       )}
 
+      <div className="mb-4">
+        <ViewTabs value={viewMode} onChange={setViewMode} disabled={locked && !isReadOnly} />
+      </div>
+
+      {viewMode === ViewMode.INCOME && settings && selectedPeriod ? (
+        <IncomePanel
+          incomes={allIncomes}
+          expenses={visibleExpenses}
+          settings={settings}
+          periodId={selectedPeriod.id}
+          enabledAccounts={enabledAccounts}
+          enabledCurrencies={enabledCurrencies}
+          isReadOnly={isReadOnly}
+          isMutating={isIncomeMutating}
+          amountsHidden={amountsHidden}
+          onToggleAmounts={toggleAmountsHidden}
+          onCreateIncome={createIncome}
+          onUpdateIncome={(incomeId, input) => updateIncome({ incomeId, input })}
+          onRemoveIncome={removeIncome}
+        />
+      ) : (
+        <>
       <MonthlySummaryCard
         summary={summary}
         color={color}
@@ -618,7 +654,7 @@ export function HomePage() {
           type="search"
           value={activeSearchQuery}
           placeholder="Buscar categoría o gasto…"
-          disabled={isLoading}
+          disabled={isLoadingData}
           className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-base outline-none focus:border-[var(--blue)] disabled:opacity-50"
           onChange={(event) =>
             setSearchQueries((prev) => ({
@@ -630,7 +666,7 @@ export function HomePage() {
       </div>
 
       <section className="mt-2 rounded-2xl bg-[var(--surface)] px-3">
-        {isLoading ? (
+        {isLoadingData ? (
           <p className="py-8 text-center text-[var(--muted)]">Cargando…</p>
         ) : isSearching ? (
           searchResults.length === 0 ? (
@@ -681,8 +717,15 @@ export function HomePage() {
           </>
         )}
       </section>
+        </>
+      )}
 
       <AmountSheet
+        key={
+          amountMode
+            ? `${amountMode.type}-${rowKey(amountMode.row)}${amountMode.type === 'edit' ? `-${amountMode.expense.id}` : ''}`
+            : 'closed'
+        }
         open={amountMode !== null}
         title={
           amountMode?.type === 'edit'
@@ -795,6 +838,7 @@ export function HomePage() {
         open={menuOpen}
         expenses={visibleExpenses}
         allExpenses={allExpenses}
+        allIncomes={allIncomes}
         periods={periods}
         monthMode={settings?.monthMode ?? MonthMode.AUTOMATIC}
         onClose={() => setMenuOpen(false)}
@@ -861,6 +905,7 @@ export function HomePage() {
             mode={onboardingMode}
             settings={settings}
             expenses={allExpenses}
+            incomes={allIncomes}
             periods={periods}
             onSkip={skipOnboarding}
             onComplete={completeOnboarding}
@@ -878,11 +923,13 @@ export function HomePage() {
           <ImportAccountsModal
             open
             expenses={allExpenses}
+            incomes={allIncomes}
             periods={periods}
             onClose={() => setImportOpen(false)}
             onImported={async () => {
               await refreshPeriods()
               await refreshExpenses()
+              await refreshIncomes()
             }}
           />
         </Suspense>

@@ -10,6 +10,7 @@ export class SupabaseImportRepository implements ImportRepository {
         usdCash: payload.settings.usdCash,
         monthlyLimit: payload.settings.monthlyLimit,
         customCategories: payload.settings.customCategories,
+        incomeSources: payload.settings.incomeSources,
         enabledAccounts: payload.settings.enabledAccounts,
         enabledCurrencies: payload.settings.enabledCurrencies,
         enabledFixedCategories: payload.settings.enabledFixedCategories,
@@ -39,6 +40,18 @@ export class SupabaseImportRepository implements ImportRepository {
         usdAmount: e.usdAmount,
         createdAt: e.createdAt,
         updatedAt: e.updatedAt,
+      })),
+      incomes: payload.incomes.map((i) => ({
+        id: i.id,
+        periodId: i.periodId,
+        accountType: i.accountType,
+        description: i.description,
+        originalCurrency: i.originalCurrency,
+        originalAmount: i.originalAmount,
+        exchangeRate: i.exchangeRate,
+        usdAmount: i.usdAmount,
+        createdAt: i.createdAt,
+        updatedAt: i.updatedAt,
       })),
     }
 

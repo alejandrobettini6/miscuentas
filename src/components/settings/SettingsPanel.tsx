@@ -148,7 +148,7 @@ export function SettingsPanel({
 
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
           <section>
-            <Tooltip text="Deshabilitar una moneda la oculta al registrar y en el resumen. Los movimientos se conservan y reaparecen al reactivarla. Con solo pesos, no hay conversión a dólares.">
+            <Tooltip text="Deshabilitar una moneda impide registrar nuevos movimientos en esa moneda. Los existentes siguen en el resumen, convertidos a la moneda contable. Con solo pesos, no hay conversión a dólares.">
               <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
                 Monedas
               </h3>
@@ -308,6 +308,10 @@ export function SettingsPanel({
                 Categorías fijas
               </h3>
             </Tooltip>
+            <p className="mb-3 text-sm text-[var(--muted)]">
+              Representan tus gastos fijos recurrentes. Los gastos en Otros se
+              consideran variables.
+            </p>
             <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl bg-[var(--surface-2)] p-3">
               {FIXED_CATEGORIES.map((category) => (
                 <label key={category} className="flex min-h-11 items-center gap-3">

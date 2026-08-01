@@ -10,7 +10,7 @@ import {
   shouldShowUsdWhiteRate,
 } from '@/services/AccountingCurrency'
 import { ExportService } from '@/services/ExportService'
-import type { Expense, Period } from '@/types/models'
+import type { Expense, Income, Period } from '@/types/models'
 import {
   formatAmountFromNumber,
   isValidExchangeRate,
@@ -28,6 +28,7 @@ interface SideMenuProps {
   open: boolean
   expenses: Expense[]
   allExpenses: Expense[]
+  allIncomes: Income[]
   periods: Period[]
   monthMode: MonthMode
   onClose: () => void
@@ -44,6 +45,7 @@ export function SideMenu({
   open,
   expenses,
   allExpenses,
+  allIncomes,
   periods,
   monthMode,
   onClose,
@@ -150,7 +152,7 @@ export function SideMenu({
     if (!settings) return
     ExportService.download(
       'miscuentas.json',
-      ExportService.toJson(allExpenses, settings, periods),
+      ExportService.toJson(allExpenses, settings, periods, allIncomes),
       'application/json',
     )
   }

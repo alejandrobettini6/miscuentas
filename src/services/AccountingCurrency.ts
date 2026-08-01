@@ -61,6 +61,13 @@ export function shouldShowUsdCashRate(settings: Settings): boolean {
   )
 }
 
+/** Registro con moneda original para conversión contable. */
+export interface MonetaryRecord {
+  accountType: AccountType
+  originalCurrency: Currency
+  originalAmount: number
+}
+
 /**
  * Importe convertido a la moneda contable solicitada.
  *
@@ -69,20 +76,28 @@ export function shouldShowUsdCashRate(settings: Settings): boolean {
  * cotizaciones actuales de `rates`.  Así, si el usuario cambia la moneda de
  * expresión (ARS ↔ USD), todos los importes se recalculan correctamente.
  */
+export function accountingAmountFromRecord(
+  record: MonetaryRecord,
+  accountingCurrency: Currency,
+  rates: ExchangeRates,
+): number {
+  if (record.originalCurrency === accountingCurrency) {
+    return record.originalAmount
+  }
+
+  const rate =
+    record.accountType === AccountType.WHITE ? rates.usdWhite : rates.usdCash
+
+  if (accountingCurrency === Currency.USD) {
+    return CurrencyConverter.roundMoney(record.originalAmount / rate)
+  }
+  return CurrencyConverter.roundMoney(record.originalAmount * rate)
+}
+
 export function accountingAmount(
   expense: Expense,
   accountingCurrency: Currency,
   rates: ExchangeRates,
 ): number {
-  if (expense.originalCurrency === accountingCurrency) {
-    return expense.originalAmount
-  }
-
-  const rate =
-    expense.accountType === AccountType.WHITE ? rates.usdWhite : rates.usdCash
-
-  if (accountingCurrency === Currency.USD) {
-    return CurrencyConverter.roundMoney(expense.originalAmount / rate)
-  }
-  return CurrencyConverter.roundMoney(expense.originalAmount * rate)
+  return accountingAmountFromRecord(expense, accountingCurrency, rates)
 }

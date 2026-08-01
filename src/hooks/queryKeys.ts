@@ -1,5 +1,6 @@
 export const queryKeys = {
   expenses: (userId: string) => ['expenses', userId] as const,
+  incomes: (userId: string) => ['incomes', userId] as const,
   settings: (userId: string) => ['settings', userId] as const,
   periods: (
     userId: string,
