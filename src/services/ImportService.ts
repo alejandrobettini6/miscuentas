@@ -3,6 +3,7 @@ import { AccountType, Category, Currency, MonthMode, PeriodStatus } from '@/type
 import type {
   Expense,
   ImportAccountsPayload,
+  Income,
   Period,
   Settings,
 } from '@/types/models'
@@ -80,12 +81,17 @@ export class ImportService {
       ? settingsRaw.customCategories.filter((c): c is string => typeof c === 'string')
       : []
 
+    const incomeSources = Array.isArray(settingsRaw.incomeSources)
+      ? settingsRaw.incomeSources.filter((c): c is string => typeof c === 'string')
+      : []
+
     const settings: Settings = {
       userId,
       usdWhite,
       usdCash,
       monthlyLimit,
       customCategories,
+      incomeSources,
       enabledAccounts: normalizeEnabledAccounts(settingsRaw.enabledAccounts),
       enabledCurrencies: normalizeEnabledCurrencies(settingsRaw.enabledCurrencies),
       enabledFixedCategories: normalizeEnabledFixedCategories(
@@ -245,6 +251,70 @@ export class ImportService {
       return { ...expense, periodId }
     })
 
+    const incomeIds = new Set<string>()
+    const rawIncomes = Array.isArray(data.incomes)
+      ? (data.incomes as Array<Record<string, unknown>>)
+      : []
+    const incomesDraft: Array<Omit<Income, 'periodId'> & { periodId?: string }> = []
+
+    rawIncomes.forEach((item, index) => {
+      const prefix = `incomes[${index}]`
+      if (!item || typeof item !== 'object') {
+        errors.push(`${prefix}: objeto inválido`)
+        return
+      }
+
+      const id = String(item.id ?? '')
+      if (!UUID_RE.test(id)) errors.push(`${prefix}.id inválido`)
+      if (incomeIds.has(id)) errors.push(`${prefix}.id duplicado`)
+      incomeIds.add(id)
+
+      if (!ACCOUNT_VALUES.has(String(item.accountType) as AccountType)) {
+        errors.push(`${prefix}.accountType inválido`)
+      }
+      if (!CURRENCY_VALUES.has(String(item.originalCurrency) as Currency)) {
+        errors.push(`${prefix}.originalCurrency inválido`)
+      }
+
+      const originalAmount = Number(item.originalAmount)
+      const exchangeRate = Number(item.exchangeRate)
+      const usdAmount = Number(item.usdAmount)
+      if (!Number.isFinite(originalAmount) || originalAmount <= 0) {
+        errors.push(`${prefix}.originalAmount inválido`)
+      }
+      if (!(exchangeRate > 0)) errors.push(`${prefix}.exchangeRate inválido`)
+      if (!Number.isFinite(usdAmount)) errors.push(`${prefix}.usdAmount inválido`)
+
+      const createdAt = String(item.createdAt ?? '')
+      const updatedAt = String(item.updatedAt ?? createdAt)
+      if (Number.isNaN(Date.parse(createdAt))) errors.push(`${prefix}.createdAt inválido`)
+
+      incomesDraft.push({
+        id,
+        userId,
+        periodId: typeof item.periodId === 'string' ? item.periodId : undefined,
+        accountType: item.accountType as AccountType,
+        description: String(item.description ?? ''),
+        originalCurrency: item.originalCurrency as Currency,
+        originalAmount,
+        exchangeRate,
+        usdAmount,
+        createdAt,
+        updatedAt,
+      })
+    })
+
+    const incomes: Income[] = incomesDraft.map((income, index) => {
+      const periodId = income.periodId
+      if (!periodId || !validPeriodIds.has(periodId)) {
+        if (version === 2 && rawIncomes.length > 0) {
+          errors.push(`incomes[${index}].periodId no referencia un período válido`)
+        }
+        return { ...income, periodId: fallbackPeriodId }
+      }
+      return { ...income, periodId }
+    })
+
     if (errors.length > 0) {
       return { ok: false, errors, payload: null }
     }
@@ -257,6 +327,7 @@ export class ImportService {
         usdCash: settings.usdCash,
         monthlyLimit: settings.monthlyLimit,
         customCategories: settings.customCategories,
+        incomeSources: settings.incomeSources,
         enabledAccounts: settings.enabledAccounts,
         enabledCurrencies: settings.enabledCurrencies,
         enabledFixedCategories: settings.enabledFixedCategories,
@@ -285,12 +356,24 @@ export class ImportService {
         createdAt: e.createdAt,
         updatedAt: e.updatedAt,
       })),
+      incomes: incomes.map((i) => ({
+        id: i.id,
+        periodId: i.periodId,
+        accountType: i.accountType,
+        description: i.description,
+        originalCurrency: i.originalCurrency,
+        originalAmount: i.originalAmount,
+        exchangeRate: i.exchangeRate,
+        usdAmount: i.usdAmount,
+        createdAt: i.createdAt,
+        updatedAt: i.updatedAt,
+      })),
     }
 
     return {
       ok: true,
       errors: [],
-      payload: { settings, periods, expenses, source },
+      payload: { settings, periods, expenses, incomes, source },
     }
   }
 }

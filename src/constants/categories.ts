@@ -57,6 +57,7 @@ export const DEFAULT_SETTINGS = {
   usdCash: 1,
   monthlyLimit: 1500,
   customCategories: [] as string[],
+  incomeSources: [] as string[],
   enabledAccounts: [AccountType.WHITE, AccountType.CASH] as AccountType[],
   enabledCurrencies: [Currency.USD, Currency.ARS] as Currency[],
   enabledFixedCategories: [...FIXED_CATEGORIES] as Category[],

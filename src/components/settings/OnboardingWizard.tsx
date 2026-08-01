@@ -13,14 +13,13 @@ import {
   MonthMode,
   SummaryDisplayMode,
 } from '@/types/enums'
-import type { Settings } from '@/types/models'
+import type { Expense, Income, Period, Settings } from '@/types/models'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { AmountInput } from '@/components/ui/AmountInput'
 import { Input } from '@/components/ui/Input'
 import { ExportService } from '@/services/ExportService'
 import { normalizeAccountingCurrency } from '@/services/SettingsDefaults'
-import type { Expense, Period } from '@/types/models'
 import {
   formatAmountFromNumber,
   isValidCustomCategoryName,
@@ -41,6 +40,7 @@ interface OnboardingWizardProps {
   mode: 'initial' | 'reconfigure'
   settings: Settings
   expenses: Expense[]
+  incomes?: Income[]
   periods: Period[]
   onSkip: () => Promise<void>
   onComplete: (draft: OnboardingDraft) => Promise<void>
@@ -63,6 +63,7 @@ export function OnboardingWizard({
   mode,
   settings,
   expenses,
+  incomes = [],
   periods,
   onSkip,
   onComplete,
@@ -127,7 +128,7 @@ export function OnboardingWizard({
   const exportBackup = () => {
     ExportService.download(
       'miscuentas-backup.json',
-      ExportService.toJson(expenses, settings, periods),
+      ExportService.toJson(expenses, settings, periods, incomes),
       'application/json',
     )
     setBackupSaved(true)
@@ -498,6 +499,10 @@ export function OnboardingWizard({
             Elegí categorías sugeridas o agregá las tuyas (máx.{' '}
             {MAX_FIXED_CATEGORIES} fijas). Después podés sumar más desde el
             inicio.
+          </p>
+          <p className="text-sm text-[var(--muted)]">
+            Estas categorías representan tus gastos fijos recurrentes. Los
+            gastos en Otros se consideran variables.
           </p>
           <p className="text-sm text-[var(--muted)]">
             {fixedCount} / {MAX_FIXED_CATEGORIES}

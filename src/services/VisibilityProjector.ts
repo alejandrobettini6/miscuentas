@@ -8,12 +8,10 @@ import type { Expense, Settings } from '@/types/models'
 export class VisibilityProjector {
   static project(expenses: Expense[], settings: Settings): Expense[] {
     const accounts = new Set(settings.enabledAccounts)
-    const currencies = new Set(settings.enabledCurrencies)
     const fixed = new Set(settings.enabledFixedCategories)
 
     return expenses.filter((expense) => {
       if (!accounts.has(expense.accountType)) return false
-      if (!currencies.has(expense.originalCurrency)) return false
       if (
         expense.category !== Category.OTHER &&
         !fixed.has(expense.category)

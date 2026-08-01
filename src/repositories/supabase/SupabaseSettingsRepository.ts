@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '@/lib/supabaseClient'
+import { isMissingColumnError } from '@/lib/supabaseSchemaCompat'
 import {
   createDefaultSettings,
   mergeSettingsUpdate,
@@ -17,6 +18,7 @@ interface SettingsRow {
   enabled_accounts?: string[] | null
   enabled_currencies?: string[] | null
   enabled_fixed_categories?: string[] | null
+  income_sources?: string[] | null
   month_mode?: string | null
   accounting_currency?: string | null
   summary_display_mode?: string | null
@@ -32,6 +34,7 @@ function mapRow(row: SettingsRow): Settings {
       usdCash: Number(row.usd_cash),
       monthlyLimit: Number(row.monthly_limit),
       customCategories: Array.isArray(row.custom_categories) ? row.custom_categories : [],
+      incomeSources: Array.isArray(row.income_sources) ? row.income_sources : [],
       enabledAccounts: row.enabled_accounts as Settings['enabledAccounts'],
       enabledCurrencies: row.enabled_currencies as Settings['enabledCurrencies'],
       enabledFixedCategories: row.enabled_fixed_categories as Settings['enabledFixedCategories'],
@@ -45,8 +48,8 @@ function mapRow(row: SettingsRow): Settings {
   )
 }
 
-function toRow(settings: Settings) {
-  return {
+function toRow(settings: Settings, options?: { includeIncomeSources?: boolean }) {
+  const row = {
     user_id: settings.userId,
     usd_white: settings.usdWhite,
     usd_cash: settings.usdCash,
@@ -61,6 +64,52 @@ function toRow(settings: Settings) {
     onboarding_completed: settings.onboardingCompleted,
     updated_at: settings.updatedAt,
   }
+
+  if (options?.includeIncomeSources !== false) {
+    return { ...row, income_sources: settings.incomeSources }
+  }
+  return row
+}
+
+async function writeSettingsRow(
+  userId: string,
+  settings: Settings,
+  mode: 'insert' | 'update',
+): Promise<SettingsRow> {
+  const supabase = getSupabaseClient()
+  const row = toRow(settings)
+
+  if (mode === 'update') {
+    let result = await supabase
+      .from('settings')
+      .update(row)
+      .eq('user_id', userId)
+      .select('*')
+      .single()
+
+    if (result.error && isMissingColumnError(result.error, 'income_sources')) {
+      const legacyRow = toRow(settings, { includeIncomeSources: false })
+      result = await supabase
+        .from('settings')
+        .update(legacyRow)
+        .eq('user_id', userId)
+        .select('*')
+        .single()
+    }
+
+    if (result.error) throw result.error
+    return result.data as SettingsRow
+  }
+
+  let result = await supabase.from('settings').insert(row).select('*').single()
+
+  if (result.error && isMissingColumnError(result.error, 'income_sources')) {
+    const legacyRow = toRow(settings, { includeIncomeSources: false })
+    result = await supabase.from('settings').insert(legacyRow).select('*').single()
+  }
+
+  if (result.error) throw result.error
+  return result.data as SettingsRow
 }
 
 export class SupabaseSettingsRepository implements SettingsRepository {
@@ -77,28 +126,14 @@ export class SupabaseSettingsRepository implements SettingsRepository {
     if (data) return mapRow(data as SettingsRow)
 
     const defaults = createDefaultSettings(userId)
-    const { data: created, error: insertError } = await supabase
-      .from('settings')
-      .insert(toRow(defaults))
-      .select('*')
-      .single()
-
-    if (insertError) throw insertError
-    return mapRow(created as SettingsRow)
+    const created = await writeSettingsRow(userId, defaults, 'insert')
+    return mapRow(created)
   }
 
   async update(userId: string, input: UpdateSettingsInput): Promise<Settings> {
     const current = await this.get(userId)
     const next = mergeSettingsUpdate(current, input)
-
-    const supabase = getSupabaseClient()
-    const { data, error } = await supabase
-      .from('settings')
-      .upsert(toRow(next))
-      .select('*')
-      .single()
-
-    if (error) throw error
-    return mapRow(data as SettingsRow)
+    const updated = await writeSettingsRow(userId, next, 'update')
+    return mapRow(updated)
   }
 }

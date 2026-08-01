@@ -21,6 +21,8 @@ export interface Settings {
   monthlyLimit: number
   /** Categorías personalizadas (OTHER + nombre); viven en settings, no en el enum. */
   customCategories: string[]
+  /** Fuentes de ingreso (ej. Trabajo, Freelance). */
+  incomeSources: string[]
   enabledAccounts: AccountType[]
   enabledCurrencies: Currency[]
   enabledFixedCategories: Category[]
@@ -85,6 +87,57 @@ export interface MonthlySummary {
   remainingPercent: number
 }
 
+export interface IncomeRow {
+  accountType: AccountType
+  label: string
+  totalUsd: number
+  lastIncome: Income | null
+}
+
+export interface Income {
+  id: string
+  userId: string
+  periodId: string
+  accountType: AccountType
+  description: string
+  originalCurrency: Currency
+  originalAmount: number
+  exchangeRate: number
+  usdAmount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IncomeSummary {
+  incomeWhite: number
+  incomeCash: number
+  totalIncome: number
+  fixedWhite: number
+  fixedCash: number
+  totalFixed: number
+  variableWhite: number
+  variableCash: number
+  totalVariable: number
+  totalExpenses: number
+  savings: number
+  savingsWithoutVariable: number
+}
+
+export interface CreateIncomeInput {
+  periodId: string
+  accountType: AccountType
+  description: string
+  originalCurrency: Currency
+  originalAmount: number
+}
+
+export interface UpdateIncomeInput {
+  accountType?: AccountType
+  description?: string
+  originalCurrency: Currency
+  originalAmount: number
+}
+
 export interface CreateExpenseInput {
   periodId: string
   accountType: AccountType
@@ -104,6 +157,7 @@ export interface UpdateSettingsInput {
   usdCash?: number
   monthlyLimit?: number
   customCategories?: string[]
+  incomeSources?: string[]
   enabledAccounts?: AccountType[]
   enabledCurrencies?: Currency[]
   enabledFixedCategories?: Category[]
@@ -121,6 +175,7 @@ export interface ImportAccountsPayload {
     usdCash: number
     monthlyLimit: number
     customCategories?: string[]
+    incomeSources?: string[]
     enabledAccounts?: AccountType[]
     enabledCurrencies?: Currency[]
     enabledFixedCategories?: Category[]
@@ -145,6 +200,18 @@ export interface ImportAccountsPayload {
     accountType: AccountType
     category: Category
     description: string | null
+    originalCurrency: Currency
+    originalAmount: number
+    exchangeRate: number
+    usdAmount: number
+    createdAt: string
+    updatedAt: string
+  }>
+  incomes?: Array<{
+    id: string
+    periodId?: string
+    accountType: AccountType
+    description: string
     originalCurrency: Currency
     originalAmount: number
     exchangeRate: number

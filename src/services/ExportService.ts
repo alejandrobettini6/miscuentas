@@ -1,6 +1,6 @@
 import { ACCOUNT_LABELS, CATEGORY_LABELS, FIXED_CATEGORIES } from '@/constants/categories'
 import { AccountType, Category, Currency } from '@/types/enums'
-import type { Expense, Period, Settings } from '@/types/models'
+import type { Expense, Income, Period, Settings } from '@/types/models'
 import { formatDateParts } from '@/utils/date'
 import { formatCsvAmount } from '@/utils/formatters'
 import type { ExchangeRates } from './AccountingCurrency'
@@ -118,6 +118,7 @@ export class ExportService {
     expenses: Expense[],
     settings: Settings,
     periods: Period[] = [],
+    incomes: Income[] = [],
   ): string {
     const payload = {
       version: 2,
@@ -127,6 +128,7 @@ export class ExportService {
         usdCash: settings.usdCash,
         monthlyLimit: settings.monthlyLimit,
         customCategories: settings.customCategories,
+        incomeSources: settings.incomeSources,
         enabledAccounts: settings.enabledAccounts,
         enabledCurrencies: settings.enabledCurrencies,
         enabledFixedCategories: settings.enabledFixedCategories,
@@ -160,6 +162,18 @@ export class ExportService {
         usdAmount: e.usdAmount,
         createdAt: e.createdAt,
         updatedAt: e.updatedAt,
+      })),
+      incomes: incomes.map((i) => ({
+        id: i.id,
+        periodId: i.periodId,
+        accountType: i.accountType,
+        description: i.description,
+        originalCurrency: i.originalCurrency,
+        originalAmount: i.originalAmount,
+        exchangeRate: i.exchangeRate,
+        usdAmount: i.usdAmount,
+        createdAt: i.createdAt,
+        updatedAt: i.updatedAt,
       })),
     }
 

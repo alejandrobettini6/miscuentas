@@ -4,7 +4,7 @@ import { PERIOD_ID, testExpense, testSettings } from '@/test/fixtures'
 import { VisibilityProjector } from './VisibilityProjector'
 
 describe('VisibilityProjector', () => {
-  it('filtra por cuenta, moneda y categoría fija', () => {
+  it('filtra por cuenta y categoría fija (no por moneda)', () => {
     const settings = testSettings({
       enabledAccounts: [AccountType.WHITE],
       enabledCurrencies: [Currency.ARS],
@@ -45,10 +45,22 @@ describe('VisibilityProjector', () => {
     ]
 
     const visible = VisibilityProjector.project(expenses, settings)
-    expect(visible.map((e) => e.id).sort()).toEqual(['a', 'e'])
+    expect(visible.map((e) => e.id).sort()).toEqual(['a', 'c', 'e'])
   })
 
-  it('vuelve a mostrar al reactivar opciones', () => {
+  it('conserva movimientos en monedas deshabilitadas para totales y conversiones', () => {
+    const settingsArsOnly = testSettings({
+      enabledAccounts: [AccountType.WHITE],
+      enabledCurrencies: [Currency.ARS],
+    })
+    const usdExpense = testExpense({
+      accountType: AccountType.WHITE,
+      originalCurrency: Currency.USD,
+    })
+    expect(VisibilityProjector.project([usdExpense], settingsArsOnly)).toHaveLength(1)
+  })
+
+  it('vuelve a mostrar al reactivar opciones de cuenta', () => {
     const settingsHidden = testSettings({
       enabledAccounts: [AccountType.WHITE],
       enabledCurrencies: [Currency.USD],

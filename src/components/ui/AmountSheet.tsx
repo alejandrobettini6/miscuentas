@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { ACCOUNT_LABELS } from '@/constants/categories'
 import { useBackButtonClose } from '@/hooks/useBackButtonClose'
-import { Currency } from '@/types/enums'
+import { AccountType, Currency } from '@/types/enums'
 import { formatAmountFromNumber, parseAmountInput } from '@/validators/amount'
 import { AmountInput } from './AmountInput'
 import { Button } from './Button'
@@ -14,10 +15,16 @@ interface AmountSheetProps {
   showCategoryName?: boolean
   /** Detalle opcional dentro de una categoría fija (no crea fila nueva). */
   showDetail?: boolean
+  showAccountToggle?: boolean
+  enabledAccounts?: AccountType[]
+  initialAccountType?: AccountType
+  showIncomeDetail?: boolean
+  initialDetail?: string
   onSubmit: (
     amount: string,
     currency: Currency,
-    categoryNameOrDetail?: string,
+    extra?: string,
+    accountType?: AccountType,
   ) => void
   onCancel: () => void
 }
@@ -30,13 +37,20 @@ export function AmountSheet({
   enabledCurrencies = [Currency.USD, Currency.ARS],
   showCategoryName = false,
   showDetail = false,
+  showAccountToggle = false,
+  enabledAccounts = [AccountType.WHITE, AccountType.CASH],
+  initialAccountType = AccountType.WHITE,
+  showIncomeDetail = false,
+  initialDetail = '',
   onSubmit,
   onCancel,
 }: AmountSheetProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const wasOpenRef = useRef(false)
   const [amount, setAmount] = useState(initialAmount)
   const [currency, setCurrency] = useState(initialCurrency)
+  const [accountType, setAccountType] = useState(initialAccountType)
   const [categoryName, setCategoryName] = useState('')
   const [detail, setDetail] = useState('')
   const [amountError, setAmountError] = useState(false)
@@ -44,7 +58,14 @@ export function AmountSheet({
   const cancelledRef = useRef(false)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      wasOpenRef.current = false
+      return
+    }
+
+    if (wasOpenRef.current) return
+    wasOpenRef.current = true
+
     submittedRef.current = false
     cancelledRef.current = false
     setAmountError(false)
@@ -59,11 +80,24 @@ export function AmountSheet({
       ? initialCurrency
       : (enabledCurrencies[0] ?? Currency.USD)
     setCurrency(safeCurrency)
+    const safeAccount = enabledAccounts.includes(initialAccountType)
+      ? initialAccountType
+      : (enabledAccounts[0] ?? AccountType.WHITE)
+    setAccountType(safeAccount)
     setCategoryName('')
-    setDetail('')
+    setDetail(showIncomeDetail ? initialDetail : '')
     const timer = window.setTimeout(() => inputRef.current?.focus(), 50)
     return () => window.clearTimeout(timer)
-  }, [open, initialAmount, initialCurrency, enabledCurrencies, showCategoryName, showDetail])
+  }, [
+    open,
+    initialAmount,
+    initialCurrency,
+    initialAccountType,
+    initialDetail,
+    enabledCurrencies,
+    enabledAccounts,
+    showIncomeDetail,
+  ])
 
   useBackButtonClose(open, () => {
     cancelledRef.current = true
@@ -91,10 +125,10 @@ export function AmountSheet({
     submittedRef.current = true
     const extra = showCategoryName
       ? categoryName
-      : showDetail
+      : showDetail || showIncomeDetail
         ? detail
         : undefined
-    onSubmit(amount, currency, extra)
+    onSubmit(amount, currency, extra, showAccountToggle ? accountType : undefined)
   }
 
   const scheduleCommit = () => {
@@ -116,11 +150,45 @@ export function AmountSheet({
   }
 
   const showCurrencyToggle = enabledCurrencies.length > 1
+  const showAccountSelector = showAccountToggle && enabledAccounts.length > 1
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-[var(--overlay)] p-4">
       <div ref={panelRef} className="w-full max-w-md rounded-2xl bg-[var(--surface)] p-5">
         <h2 className="mb-4 text-lg font-semibold">{title}</h2>
+
+        {showAccountSelector ? (
+          <div
+            className="mb-4 grid gap-1 rounded-xl bg-[var(--fill)] p-1"
+            style={{
+              gridTemplateColumns: `repeat(${enabledAccounts.length}, minmax(0, 1fr))`,
+            }}
+            role="group"
+            aria-label="Cuenta"
+          >
+            {enabledAccounts.map((item) => (
+              <button
+                key={item}
+                type="button"
+                aria-label={ACCOUNT_LABELS[item]}
+                aria-pressed={accountType === item}
+                className={`min-h-10 rounded-lg font-semibold ${
+                  accountType === item
+                    ? 'bg-[var(--segment-active)] text-[var(--text)] shadow-sm'
+                    : 'text-[var(--muted)]'
+                }`}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setAccountType(item)}
+              >
+                {ACCOUNT_LABELS[item]}
+              </button>
+            ))}
+          </div>
+        ) : showAccountToggle ? (
+          <p className="mb-4 text-center text-sm font-medium text-[var(--muted)]">
+            Cuenta: {ACCOUNT_LABELS[enabledAccounts[0] ?? accountType]}
+          </p>
+        ) : null}
 
         {showCurrencyToggle ? (
           <div
@@ -191,6 +259,31 @@ export function AmountSheet({
           )}
         </label>
 
+        {showIncomeDetail && (
+          <label className="mb-4 block" htmlFor="income-detail-input">
+            <span className="mb-2 block text-sm font-medium text-[var(--text)]">
+              Detalle (opcional)
+            </span>
+            <input
+              id="income-detail-input"
+              type="text"
+              value={detail}
+              onChange={(event) => setDetail(event.target.value)}
+              onBlur={scheduleCommit}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  commit()
+                }
+              }}
+              placeholder="ej. Trabajo"
+              maxLength={40}
+              className="min-h-12 w-full rounded-xl border border-[var(--border)] px-4 text-base outline-none focus:border-[var(--blue)]"
+              aria-label="Detalle (opcional)"
+            />
+          </label>
+        )}
+
         {showCategoryName && (
           <label className="mb-4 block" htmlFor="category-name-input">
             <span className="mb-2 block text-sm font-medium text-[var(--text)]">
@@ -216,7 +309,7 @@ export function AmountSheet({
           </label>
         )}
 
-        {showDetail && !showCategoryName && (
+        {showDetail && !showCategoryName && !showIncomeDetail && (
           <label className="mb-4 block" htmlFor="detail-input">
             <span className="mb-2 block text-sm font-medium text-[var(--text)]">
               Detalle (opcional)
