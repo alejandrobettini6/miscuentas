@@ -15,6 +15,7 @@ interface ExpenseSearchResultRowProps {
   rates?: ExchangeRates
   disabled?: boolean
   canRemoveCategory?: boolean
+  lockedExpenseIds?: Set<string>
   onRegister: (row: CategoryRowModel) => void
   onEdit: (row: CategoryRowModel, expense: Expense) => void
   onDelete: (expense: Expense) => void
@@ -28,6 +29,7 @@ function ExpenseSearchResultRowComponent({
   rates = { usdWhite: 1, usdCash: 1 },
   disabled,
   canRemoveCategory = false,
+  lockedExpenseIds,
   onRegister,
   onEdit,
   onDelete,
@@ -57,6 +59,7 @@ function ExpenseSearchResultRowComponent({
     ? row.totalUsd !== 0 || hasLast
     : true
   const trashRemovesCategory = isCategory && canRemoveCategory && !hasLast
+  const itemLocked = Boolean(expense && lockedExpenseIds?.has(expense.id))
 
   return (
     <div className="flex items-center gap-1 border-b border-[var(--border)] py-3">
@@ -110,7 +113,7 @@ function ExpenseSearchResultRowComponent({
             ? `Editar último movimiento de ${row.label}`
             : `Editar movimiento de ${row.label}`
         }
-        disabled={disabled || !expense}
+        disabled={disabled || !expense || itemLocked}
         onClick={() => {
           if (expense) onEdit(row, expense)
         }}
@@ -128,7 +131,7 @@ function ExpenseSearchResultRowComponent({
               ? `Eliminar último movimiento de ${row.label}`
               : `Eliminar movimiento de ${row.label}`
         }
-        disabled={disabled || (!expense && !trashRemovesCategory)}
+        disabled={disabled || (!expense && !trashRemovesCategory) || itemLocked}
         onClick={() => {
           if (trashRemovesCategory) {
             onRemoveCategory?.(row)

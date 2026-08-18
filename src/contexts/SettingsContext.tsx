@@ -7,8 +7,10 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import toast from 'react-hot-toast'
 import { getSettingsRepository } from '@/repositories'
 import type { Settings, UpdateSettingsInput } from '@/types/models'
+import { getErrorMessage } from '@/utils/errors'
 import { useAuthContext } from './AuthContext'
 
 interface SettingsContextValue {
@@ -35,6 +37,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     try {
       const next = await repo.get(user.id)
       setSettings(next)
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'No se pudo cargar la configuración'))
     } finally {
       setIsLoading(false)
     }

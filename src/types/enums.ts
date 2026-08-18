@@ -58,6 +58,17 @@ export enum SummaryDisplayMode {
 export enum ViewMode {
   EXPENSES = 'EXPENSES',
   INCOME = 'INCOME',
+  TRIPS = 'TRIPS',
+}
+
+export enum TripStatus {
+  ACTIVE = 'ACTIVE',
+  CLOSED = 'CLOSED',
+}
+
+export enum TripMergeMode {
+  AS_TRIP = 'AS_TRIP',
+  INDIVIDUAL = 'INDIVIDUAL',
 }
 
 export enum OfflineOperationType {

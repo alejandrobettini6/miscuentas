@@ -23,6 +23,7 @@ interface SettingsRow {
   accounting_currency?: string | null
   summary_display_mode?: string | null
   onboarding_completed?: boolean | null
+  trips_module_enabled?: boolean | null
   updated_at: string
 }
 
@@ -42,14 +43,18 @@ function mapRow(row: SettingsRow): Settings {
       accountingCurrency: row.accounting_currency as Settings['accountingCurrency'],
       summaryDisplayMode: row.summary_display_mode as Settings['summaryDisplayMode'],
       onboardingCompleted: Boolean(row.onboarding_completed),
+      tripsModuleEnabled: Boolean(row.trips_module_enabled),
       updatedAt: row.updated_at,
     },
     row.user_id,
   )
 }
 
-function toRow(settings: Settings, options?: { includeIncomeSources?: boolean }) {
-  const row = {
+function toRow(
+  settings: Settings,
+  options?: { includeIncomeSources?: boolean; includeTripsModule?: boolean },
+) {
+  const row: Record<string, unknown> = {
     user_id: settings.userId,
     usd_white: settings.usdWhite,
     usd_cash: settings.usdCash,
@@ -65,9 +70,14 @@ function toRow(settings: Settings, options?: { includeIncomeSources?: boolean })
     updated_at: settings.updatedAt,
   }
 
-  if (options?.includeIncomeSources !== false) {
-    return { ...row, income_sources: settings.incomeSources }
+  if (options?.includeTripsModule !== false) {
+    row.trips_module_enabled = settings.tripsModuleEnabled
   }
+
+  if (options?.includeIncomeSources !== false) {
+    row.income_sources = settings.incomeSources
+  }
+
   return row
 }
 
@@ -77,39 +87,56 @@ async function writeSettingsRow(
   mode: 'insert' | 'update',
 ): Promise<SettingsRow> {
   const supabase = getSupabaseClient()
-  const row = toRow(settings)
 
-  if (mode === 'update') {
-    let result = await supabase
-      .from('settings')
-      .update(row)
-      .eq('user_id', userId)
-      .select('*')
-      .single()
+  const optionSets: Array<{ includeIncomeSources?: boolean; includeTripsModule?: boolean }> = [
+    {},
+    { includeIncomeSources: false },
+    { includeTripsModule: false },
+    { includeIncomeSources: false, includeTripsModule: false },
+  ]
 
-    if (result.error && isMissingColumnError(result.error, 'income_sources')) {
-      const legacyRow = toRow(settings, { includeIncomeSources: false })
-      result = await supabase
+  let lastError: unknown = null
+
+  for (const options of optionSets) {
+    const row = toRow(settings, options)
+
+    if (mode === 'update') {
+      const result = await supabase
         .from('settings')
-        .update(legacyRow)
+        .update(row)
         .eq('user_id', userId)
         .select('*')
         .single()
+
+      if (!result.error) return result.data as SettingsRow
+
+      if (
+        isMissingColumnError(result.error, 'income_sources') ||
+        isMissingColumnError(result.error, 'trips_module_enabled')
+      ) {
+        lastError = result.error
+        continue
+      }
+
+      throw result.error
     }
 
-    if (result.error) throw result.error
-    return result.data as SettingsRow
+    const result = await supabase.from('settings').insert(row).select('*').single()
+
+    if (!result.error) return result.data as SettingsRow
+
+    if (
+      isMissingColumnError(result.error, 'income_sources') ||
+      isMissingColumnError(result.error, 'trips_module_enabled')
+    ) {
+      lastError = result.error
+      continue
+    }
+
+    throw result.error
   }
 
-  let result = await supabase.from('settings').insert(row).select('*').single()
-
-  if (result.error && isMissingColumnError(result.error, 'income_sources')) {
-    const legacyRow = toRow(settings, { includeIncomeSources: false })
-    result = await supabase.from('settings').insert(legacyRow).select('*').single()
-  }
-
-  if (result.error) throw result.error
-  return result.data as SettingsRow
+  throw lastError ?? new Error('No se pudo guardar la configuración')
 }
 
 export class SupabaseSettingsRepository implements SettingsRepository {

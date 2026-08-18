@@ -36,8 +36,58 @@ export function SettingsPanel({
 
   useBackButtonClose(open, onClose)
 
-  if (!open || !settings) return null
+  if (!open) return null
 
+  return (
+    <>
+      <div className="fixed inset-0 z-[55] bg-[var(--overlay)]" onClick={onClose} />
+      <aside className="fixed inset-y-0 right-0 z-[55] flex w-[min(100%,360px)] flex-col bg-[var(--surface)] shadow-xl">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+          <h2 className="text-lg font-semibold">Configuración</h2>
+          <button
+            type="button"
+            className="flex min-h-11 min-w-11 items-center justify-center"
+            aria-label="Cerrar configuración"
+            onClick={onClose}
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        {!settings ? (
+          <div className="flex flex-1 items-center justify-center px-4 py-8">
+            <p className="text-sm text-[var(--muted)]">Cargando configuración…</p>
+          </div>
+        ) : (
+        <SettingsPanelContent
+          settings={settings}
+          busy={busy}
+          setBusy={setBusy}
+          updateSettings={updateSettings}
+          onClose={onClose}
+          onOpenOnboarding={onOpenOnboarding}
+        />
+        )}
+      </aside>
+    </>
+  )
+}
+
+function SettingsPanelContent({
+  settings,
+  busy,
+  setBusy,
+  updateSettings,
+  onClose,
+  onOpenOnboarding,
+}: {
+  settings: NonNullable<ReturnType<typeof useSettingsContext>['settings']>
+  busy: boolean
+  setBusy: (value: boolean) => void
+  updateSettings: ReturnType<typeof useSettingsContext>['updateSettings']
+  onClose: () => void
+  onOpenOnboarding: () => void
+}) {
   const toggleAccount = async (account: AccountType) => {
     const has = settings.enabledAccounts.includes(account)
     const next = has
@@ -131,21 +181,6 @@ export function SettingsPanel({
   }
 
   return (
-    <>
-      <div className="fixed inset-0 z-50 bg-[var(--overlay)]" onClick={onClose} />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-[min(100%,360px)] flex-col bg-[var(--surface)] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <h2 className="text-lg font-semibold">Configuración</h2>
-          <button
-            type="button"
-            className="flex min-h-11 min-w-11 items-center justify-center"
-            aria-label="Cerrar configuración"
-            onClick={onClose}
-          >
-            <X size={22} />
-          </button>
-        </div>
-
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
           <section>
             <Tooltip text="Deshabilitar una moneda impide registrar nuevos movimientos en esa moneda. Los existentes siguen en el resumen, convertidos a la moneda contable. Con solo pesos, no hay conversión a dólares.">
@@ -347,7 +382,5 @@ export function SettingsPanel({
             </Button>
           </section>
         </div>
-      </aside>
-    </>
   )
 }

@@ -31,12 +31,15 @@ interface SideMenuProps {
   allIncomes: Income[]
   periods: Period[]
   monthMode: MonthMode
+  tripsModuleEnabled?: boolean
   onClose: () => void
   onClosePeriod: () => Promise<void>
   onOpenSettings: () => void
   onOpenOnboarding: () => void
   onOpenImport: () => void
   onOpenCardStatementImport: () => void
+  onToggleTripsModule?: () => void
+  onOpenTripHistory?: () => void
 }
 
 type SettingField = 'usdWhite' | 'usdCash' | 'monthlyLimit' | null
@@ -48,12 +51,15 @@ export function SideMenu({
   allIncomes,
   periods,
   monthMode,
+  tripsModuleEnabled = false,
   onClose,
   onClosePeriod,
   onOpenSettings,
   onOpenOnboarding,
   onOpenImport,
   onOpenCardStatementImport,
+  onToggleTripsModule,
+  onOpenTripHistory,
 }: SideMenuProps) {
   const { logout } = useAuthContext()
   const { settings, updateSettings } = useSettingsContext()
@@ -211,6 +217,25 @@ export function SideMenu({
               <MenuButton
                 label={monthlyLimitLabel}
                 onClick={() => openField('monthlyLimit')}
+              />
+            )}
+          </Section>
+
+          <Section title="Viajes">
+            <MenuButton
+              label={tripsModuleEnabled ? 'Desactivar módulo de viajes' : 'Activar módulo de viajes'}
+              onClick={() => {
+                onToggleTripsModule?.()
+                onClose()
+              }}
+            />
+            {onOpenTripHistory && (
+              <MenuButton
+                label="Historial de viajes"
+                onClick={() => {
+                  onClose()
+                  onOpenTripHistory()
+                }}
               />
             )}
           </Section>

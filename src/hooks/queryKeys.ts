@@ -7,4 +7,7 @@ export const queryKeys = {
     monthMode?: string | number | null,
     monthlyLimit?: string | number | null,
   ) => ['periods', userId, monthMode ?? null, monthlyLimit ?? null] as const,
+  trips: (userId: string) => ['trips', userId] as const,
+  tripExpenses: (userId: string, tripId: string) =>
+    ['tripExpenses', userId, tripId] as const,
 }

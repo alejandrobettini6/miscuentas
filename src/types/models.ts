@@ -7,6 +7,8 @@ import type {
   OfflineOperationType,
   PeriodStatus,
   SummaryDisplayMode,
+  TripMergeMode,
+  TripStatus,
 } from './enums'
 
 export interface User {
@@ -31,6 +33,7 @@ export interface Settings {
   accountingCurrency: Currency
   summaryDisplayMode: SummaryDisplayMode
   onboardingCompleted: boolean
+  tripsModuleEnabled: boolean
   updatedAt: string
 }
 
@@ -165,6 +168,86 @@ export interface UpdateSettingsInput {
   accountingCurrency?: Currency
   summaryDisplayMode?: SummaryDisplayMode
   onboardingCompleted?: boolean
+  tripsModuleEnabled?: boolean
+}
+
+export interface Trip {
+  id: string
+  userId: string
+  name: string
+  status: TripStatus
+  budgetMode: SummaryDisplayMode
+  budgetLimit: number | null
+  countsAgainstMonthly: boolean
+  enabledAccounts: AccountType[]
+  enabledCurrencies: Currency[]
+  enabledCategories: string[]
+  customCategories: string[]
+  createdAt: string
+  closedAt: string | null
+  mergedAt: string | null
+  mergeMode: TripMergeMode | null
+  mergedExpenseIds: string[] | null
+  reopenDeadline: string | null
+}
+
+export interface TripExpense {
+  id: string
+  userId: string
+  tripId: string
+  accountType: AccountType
+  category: string
+  description: string | null
+  originalCurrency: Currency
+  originalAmount: number
+  exchangeRate: number
+  usdAmount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TripCategoryRow {
+  category: string
+  description: string | null
+  label: string
+  totalUsd: number
+  lastExpense: TripExpense | null
+  isOtrosGrande: boolean
+}
+
+export interface CreateTripInput {
+  name?: string
+  budgetMode: SummaryDisplayMode
+  budgetLimit?: number | null
+  countsAgainstMonthly?: boolean
+  enabledAccounts: AccountType[]
+  enabledCurrencies: Currency[]
+  enabledCategories: string[]
+}
+
+export interface UpdateTripInput {
+  name?: string
+  budgetMode?: SummaryDisplayMode
+  budgetLimit?: number | null
+  countsAgainstMonthly?: boolean
+  enabledAccounts?: AccountType[]
+  enabledCurrencies?: Currency[]
+  enabledCategories?: string[]
+  customCategories?: string[]
+}
+
+export interface CreateTripExpenseInput {
+  tripId: string
+  accountType: AccountType
+  category: string
+  description?: string | null
+  originalCurrency: Currency
+  originalAmount: number
+}
+
+export interface UpdateTripExpenseInput {
+  originalCurrency: Currency
+  originalAmount: number
 }
 
 export interface ImportAccountsPayload {

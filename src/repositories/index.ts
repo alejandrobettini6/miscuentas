@@ -5,12 +5,14 @@ import { LocalImportRepository } from './local/LocalImportRepository'
 import { LocalIncomeRepository } from './local/LocalIncomeRepository'
 import { LocalPeriodRepository } from './local/LocalPeriodRepository'
 import { LocalSettingsRepository } from './local/LocalSettingsRepository'
+import { LocalTripRepository } from './local/LocalTripRepository'
 import { SupabaseAuthRepository } from './supabase/SupabaseAuthRepository'
 import { SupabaseExpenseRepository } from './supabase/SupabaseExpenseRepository'
 import { SupabaseImportRepository } from './supabase/SupabaseImportRepository'
 import { SupabaseIncomeRepository } from './supabase/SupabaseIncomeRepository'
 import { SupabasePeriodRepository } from './supabase/SupabasePeriodRepository'
 import { SupabaseSettingsRepository } from './supabase/SupabaseSettingsRepository'
+import { SupabaseTripRepository } from './supabase/SupabaseTripRepository'
 import type {
   AuthRepository,
   ExpenseRepository,
@@ -18,6 +20,7 @@ import type {
   IncomeRepository,
   PeriodRepository,
   SettingsRepository,
+  TripRepository,
 } from './interfaces'
 
 let authRepo: AuthRepository | null = null
@@ -26,6 +29,7 @@ let expenseRepo: ExpenseRepository | null = null
 let incomeRepo: IncomeRepository | null = null
 let periodRepo: PeriodRepository | null = null
 let importRepo: ImportRepository | null = null
+let tripRepo: TripRepository | null = null
 
 export function getAuthRepository(): AuthRepository {
   if (!authRepo) {
@@ -85,4 +89,14 @@ export function getImportRepository(): ImportRepository {
         : new LocalImportRepository()
   }
   return importRepo
+}
+
+export function getTripRepository(): TripRepository {
+  if (!tripRepo) {
+    tripRepo =
+      getDataMode() === 'supabase'
+        ? new SupabaseTripRepository()
+        : new LocalTripRepository()
+  }
+  return tripRepo
 }

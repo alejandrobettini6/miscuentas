@@ -30,8 +30,9 @@ export class CategoryAggregator {
     const grandesMap = new Map<string, Expense[]>()
     for (const expense of accountExpenses) {
       if (expense.category !== Category.OTHER || !expense.description) continue
-      if (!isListedCustomCategory(expense.description, customCategories)) continue
-      const key = expense.description.toLowerCase()
+      const categoryKey = resolveCustomCategoryKey(expense.description, customCategories)
+      if (!categoryKey) continue
+      const key = categoryKey.toLowerCase()
       const list = grandesMap.get(key) ?? []
       list.push(expense)
       grandesMap.set(key, list)
@@ -49,7 +50,12 @@ export class CategoryAggregator {
     const grandesRows: CategoryRow[] = []
     for (const [key, items] of grandesMap.entries()) {
       const fromSettings = customCategories.find((c) => c.toLowerCase() === key)
-      const label = items[0]?.description ?? fromSettings ?? key
+      const label =
+        fromSettings ??
+        (items[0]?.description
+          ? resolveCustomCategoryKey(items[0].description, customCategories)
+          : null) ??
+        key
       const totalUsd = round(
         items.reduce((acc, e) => acc + accountingAmount(e, accountingCurrency, rates), 0),
       )
@@ -126,12 +132,35 @@ export class CategoryAggregator {
   }
 }
 
+function resolveCustomCategoryKey(
+  description: string,
+  customCategories: string[],
+): string | null {
+  const trimmed = description.trim()
+  if (!trimmed) return null
+
+  const exact = customCategories.find(
+    (c) => c.trim().toLowerCase() === trimmed.toLowerCase(),
+  )
+  if (exact) return exact
+
+  const prefixed = trimmed.match(/^\(Viaje .+?\)\s+(.+)$/)
+  if (prefixed) {
+    const suffix = prefixed[1]!.trim()
+    const fromList = customCategories.find(
+      (c) => c.trim().toLowerCase() === suffix.toLowerCase(),
+    )
+    return fromList ?? suffix
+  }
+
+  return null
+}
+
 function isListedCustomCategory(
   description: string,
   customCategories: string[],
 ): boolean {
-  const lower = description.trim().toLowerCase()
-  return customCategories.some((c) => c.trim().toLowerCase() === lower)
+  return resolveCustomCategoryKey(description, customCategories) !== null
 }
 
 function isOtrosGeneralExpense(
@@ -151,10 +180,11 @@ function matchesRow(
   if (expense.category !== row.category) return false
   if (row.isOtrosGrande || row.category === Category.OTHER) {
     if (row.isOtrosGrande) {
-      return (
-        Boolean(expense.description) &&
-        expense.description!.toLowerCase() === (row.description ?? '').toLowerCase()
-      )
+      const rowLabel = (row.description ?? '').trim().toLowerCase()
+      const expenseDesc = expense.description?.trim() ?? ''
+      if (!expenseDesc) return false
+      const categoryKey = resolveCustomCategoryKey(expenseDesc, customCategories)
+      return categoryKey?.trim().toLowerCase() === rowLabel
     }
     if (row.category === Category.OTHER && !row.isOtrosGrande) {
       return isOtrosGeneralExpense(expense, customCategories)
