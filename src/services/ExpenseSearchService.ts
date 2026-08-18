@@ -25,13 +25,17 @@ export function expenseDetailLabel(
   row: Pick<CategoryRow, 'category' | 'description' | 'isOtrosGrande'>,
   expense: Expense,
 ): string | null {
+  const desc = expense.description?.trim()
   if (row.isOtrosGrande) {
-    return null
+    if (!desc) return null
+    const rowLabel = (row.description ?? '').trim()
+    if (desc.toLowerCase() === rowLabel.toLowerCase()) return null
+    return desc
   }
   if (row.category === Category.OTHER && !row.isOtrosGrande) {
-    return expense.description?.trim() ? expense.description : null
+    return desc ? desc : null
   }
-  return expense.description ?? 'Varios'
+  return desc ?? 'Varios'
 }
 
 interface SearchParams {

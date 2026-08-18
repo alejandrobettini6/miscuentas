@@ -1,7 +1,3 @@
-1) Que ahora los numeros cuando se ingresan, haya "." para separar miles. Ejemplo: 12.500 -> 12500; 100 -> 100; 100000 -> 100.000; 1000500 -> 1.000.500;
+Hay que terminar de hacer testeo sobre todo con gastos de 2 meses distintos (ver como simular el mes anterior)
 
-2) ¿El mes se cambiara solo?
-
-3) Que haya posibilidad de agregar una categoria fija nueva. Flujo de definir.
-
-4) Formualrio para registrar nuevo usuario
+Vamos a hacer que haga la fusion de los gastos solamente via "Viaje". Lo otro que quede como fucionalidad en gris y a implementar a futuro (que no borre nada, solamente que lo ponga disabled para q el usuario no pueda hacer click en el boton)

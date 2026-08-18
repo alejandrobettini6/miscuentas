@@ -91,6 +91,7 @@ export function createDefaultSettings(userId: string, now = new Date()): Setting
     accountingCurrency: DEFAULT_SETTINGS.accountingCurrency,
     summaryDisplayMode: DEFAULT_SETTINGS.summaryDisplayMode,
     onboardingCompleted: DEFAULT_SETTINGS.onboardingCompleted,
+    tripsModuleEnabled: true,
     updatedAt: now.toISOString(),
   }
 }
@@ -118,6 +119,7 @@ export function normalizeSettings(
     ),
     summaryDisplayMode: normalizeSummaryDisplayMode(raw.summaryDisplayMode),
     onboardingCompleted: Boolean(raw.onboardingCompleted),
+    tripsModuleEnabled: Boolean(raw.tripsModuleEnabled),
     updatedAt: raw.updatedAt ?? new Date().toISOString(),
   }
 }
@@ -179,6 +181,10 @@ export function mergeSettingsUpdate(
       input.onboardingCompleted !== undefined
         ? Boolean(input.onboardingCompleted)
         : current.onboardingCompleted,
+    tripsModuleEnabled:
+      input.tripsModuleEnabled !== undefined
+        ? Boolean(input.tripsModuleEnabled)
+        : current.tripsModuleEnabled,
     updatedAt: new Date().toISOString(),
   }
 }

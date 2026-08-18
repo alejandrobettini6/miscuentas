@@ -9,6 +9,8 @@ import { formatMoneyLabel } from '@/utils/formatters'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 
+import type { TripCategoryBreakdownItem } from '@/services/TripMergedBreakdownService'
+
 interface CategoryDetailsModalProps {
   open: boolean
   row: CategoryRow | null
@@ -20,6 +22,9 @@ interface CategoryDetailsModalProps {
   accountingCurrency?: Currency
   rates?: ExchangeRates
   isReadOnly?: boolean
+  lockedExpenseIds?: Set<string>
+  tripBreakdown?: TripCategoryBreakdownItem[] | null
+  tripBreakdownLoading?: boolean
   onClose: () => void
   onRemoveCategory?: () => void
   onEditExpense?: (expense: Expense) => void
@@ -37,6 +42,9 @@ export function CategoryDetailsModal({
   accountingCurrency = Currency.USD,
   rates = { usdWhite: 1, usdCash: 1 },
   isReadOnly = false,
+  lockedExpenseIds,
+  tripBreakdown = null,
+  tripBreakdownLoading = false,
   onClose,
   onRemoveCategory,
   onEditExpense,
@@ -50,15 +58,20 @@ export function CategoryDetailsModal({
   const showBoth =
     enabledAccounts.includes(AccountType.WHITE) &&
     enabledAccounts.includes(AccountType.CASH)
-  const canEditItems = !isReadOnly && (Boolean(onEditExpense) || Boolean(onDeleteExpense))
+  const showTripBreakdown = tripBreakdown !== null || tripBreakdownLoading
+  const canEditItems =
+    !showTripBreakdown && !isReadOnly && (Boolean(onEditExpense) || Boolean(onDeleteExpense))
 
   return (
     <Modal open={open} title={row.label} onClose={onClose}>
       <div className="mb-4 space-y-1">
         <p className="text-base text-[var(--muted)]">
-          Total en {ACCOUNT_LABELS[accountType]}{' '}
+          {showTripBreakdown ? 'Total del viaje' : `Total en ${ACCOUNT_LABELS[accountType]}`}{' '}
           <span className="font-semibold text-[var(--text)]">
-            {formatMoneyLabel(accountTotal, accountingCurrency)}
+            {formatMoneyLabel(
+              showTripBreakdown ? totalWhite + totalCash : accountTotal,
+              accountingCurrency,
+            )}
           </span>
         </p>
         {showBoth && (
@@ -75,13 +88,46 @@ export function CategoryDetailsModal({
               </span>
             </p>
             <p className="text-xs text-[var(--muted)]">
-              Totales de esta categoría en ambas cuentas
+              {showTripBreakdown
+                ? 'Desglose por categoría del viaje'
+                : 'Totales de esta categoría en ambas cuentas'}
             </p>
           </>
         )}
       </div>
 
-      {items.length === 0 ? (
+      {tripBreakdownLoading ? (
+        <p className="mb-4 text-sm text-[var(--muted)]">Cargando desglose…</p>
+      ) : tripBreakdown && tripBreakdown.length > 0 ? (
+        <ul className="mb-4 max-h-72 space-y-3 overflow-y-auto">
+          {tripBreakdown.map((item) => (
+            <li
+              key={item.label}
+              className="rounded-xl bg-[var(--surface-2)] px-3 py-2"
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm font-medium">{item.label}</span>
+                <span className="font-semibold tabular-nums">
+                  {formatMoneyLabel(item.total, accountingCurrency)}
+                </span>
+              </div>
+              {showBoth && (
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
+                  {formatMoneyLabel(item.totalWhite, accountingCurrency)}
+                  {' · '}
+                  {ACCOUNT_LABELS[AccountType.CASH]}{' '}
+                  {formatMoneyLabel(item.totalCash, accountingCurrency)}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : showTripBreakdown ? (
+        <p className="mb-4 text-sm text-[var(--muted)]">
+          Sin gastos registrados en el viaje
+        </p>
+      ) : items.length === 0 ? (
         <p className="mb-4 text-sm text-[var(--muted)]">
           Sin movimientos en {ACCOUNT_LABELS[accountType]}
         </p>
@@ -89,6 +135,7 @@ export function CategoryDetailsModal({
         <ul className="mb-4 max-h-72 space-y-3 overflow-y-auto">
           {items.map((expense) => {
             const detail = expenseDetailLabel(row, expense)
+            const isLocked = lockedExpenseIds?.has(expense.id) ?? false
             return (
               <li
                 key={expense.id}
@@ -112,7 +159,7 @@ export function CategoryDetailsModal({
                     </p>
                   )}
                 </div>
-                {canEditItems && (
+                {canEditItems && !isLocked && (
                   <div className="flex shrink-0 items-center gap-1">
                     {onEditExpense && (
                       <button

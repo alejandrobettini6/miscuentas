@@ -37,6 +37,16 @@ const SettingsPanel = lazy(() =>
     default: m.SettingsPanel,
   })),
 )
+const TripPanel = lazy(() =>
+  import('@/components/trips/TripPanel').then((m) => ({
+    default: m.TripPanel,
+  })),
+)
+const TripHistoryPanel = lazy(() =>
+  import('@/components/trips/TripHistoryPanel').then((m) => ({
+    default: m.TripHistoryPanel,
+  })),
+)
 import { MonthlySummaryCard } from '@/components/summary/MonthlySummaryCard'
 import { IncomePanel } from '@/components/income/IncomePanel'
 import { AmountSheet } from '@/components/ui/AmountSheet'
@@ -45,6 +55,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Tabs } from '@/components/ui/Tabs'
 import { ViewTabs } from '@/components/ui/ViewTabs'
 import { CATEGORY_LABELS, DEFAULT_SETTINGS } from '@/constants/categories'
+import { useAuthContext } from '@/contexts/AuthContext'
 import { useSettingsContext } from '@/contexts/SettingsContext'
 import { useAmountsVisibility } from '@/hooks/useAmountsVisibility'
 import { useExpenses } from '@/hooks/useExpenses'
@@ -52,9 +63,22 @@ import { useIncomes } from '@/hooks/useIncomes'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { usePeriods } from '@/hooks/usePeriods'
 import { useSummary } from '@/hooks/useSummary'
+import { useTrips } from '@/hooks/useTrips'
+import { getTripRepository } from '@/repositories'
 import { CategoryAggregator } from '@/services/CategoryAggregator'
 import { ExpenseSearchService } from '@/services/ExpenseSearchService'
+import {
+  collectMergedExpenseIds,
+  isMergedExpense,
+} from '@/services/MergedExpenseGuard'
+import {
+  buildCategoryBreakdown,
+  findMergedTripForCategoryRow,
+  type TripCategoryBreakdownItem,
+} from '@/services/TripMergedBreakdownService'
+import { tripAsCategoryLabel } from '@/services/TripCategoryMapper'
 import { VisibilityProjector } from '@/services/VisibilityProjector'
+import { categoryRowScrollKey } from '@/utils/categoryScrollKey'
 import { AccountType, Category, Currency, MonthMode, PeriodStatus, SummaryDisplayMode, ViewMode } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel, Expense } from '@/types/models'
 import { getMonthLabelFromKey, getYearMonthKey, nextYearMonth } from '@/utils/date'
@@ -71,6 +95,7 @@ type AmountMode =
   | null
 
 export function HomePage() {
+  const { user } = useAuthContext()
   const { settings, updateSettings } = useSettingsContext()
   const {
     expenses: allExpenses,
@@ -99,6 +124,7 @@ export function HomePage() {
     isAdvancing,
     refresh: refreshPeriods,
   } = usePeriods()
+  const { trips } = useTrips()
   const { isOnline, pendingCount } = useOnlineStatus()
   const [amountsHidden, toggleAmountsHidden] = useAmountsVisibility()
 
@@ -137,6 +163,16 @@ export function HomePage() {
     [AccountType.WHITE]: '',
     [AccountType.CASH]: '',
   })
+  const [tripHistoryOpen, setTripHistoryOpen] = useState(false)
+  const [tripBreakdown, setTripBreakdown] = useState<TripCategoryBreakdownItem[] | null>(
+    null,
+  )
+  const [tripBreakdownLoading, setTripBreakdownLoading] = useState(false)
+  const [highlightCategoryKey, setHighlightCategoryKey] = useState<string | null>(null)
+  const [pendingMergeScroll, setPendingMergeScroll] = useState<{
+    scrollKey: string
+    createdExpenseIds: string[]
+  } | null>(null)
 
   useEffect(() => {
     if (!settings) return
@@ -162,6 +198,13 @@ export function HomePage() {
     periods.find((p) => p.id === selectedPeriodId) ?? activePeriod
   const isReadOnly =
     !selectedPeriod || selectedPeriod.status === PeriodStatus.CLOSED
+
+  const mergedExpenseIds = useMemo(() => collectMergedExpenseIds(trips), [trips])
+
+  const isTripMergedExpense = useCallback(
+    (expenseId: string) => isMergedExpense(expenseId, mergedExpenseIds),
+    [mergedExpenseIds],
+  )
 
   const visibleExpenses = useMemo(() => {
     if (!settings || !selectedPeriod) return []
@@ -222,34 +265,34 @@ export function HomePage() {
 
   const handleEditRow = useCallback(
     (row: CategoryRowModel) => {
-      if (isReadOnly || !row.lastExpense) return
+      if (isReadOnly || !row.lastExpense || isTripMergedExpense(row.lastExpense.id)) return
       setAmountMode({ type: 'edit', row, expense: row.lastExpense })
     },
-    [isReadOnly],
+    [isReadOnly, isTripMergedExpense],
   )
 
   const handleDeleteRow = useCallback(
     (row: CategoryRowModel) => {
-      if (isReadOnly || !row.lastExpense) return
+      if (isReadOnly || !row.lastExpense || isTripMergedExpense(row.lastExpense.id)) return
       setDeleteTarget(row.lastExpense)
     },
-    [isReadOnly],
+    [isReadOnly, isTripMergedExpense],
   )
 
   const handleEditSearchResult = useCallback(
     (row: CategoryRowModel, expense: Expense) => {
-      if (isReadOnly) return
+      if (isReadOnly || isTripMergedExpense(expense.id)) return
       setAmountMode({ type: 'edit', row, expense })
     },
-    [isReadOnly],
+    [isReadOnly, isTripMergedExpense],
   )
 
   const handleDeleteSearchResult = useCallback(
     (expense: Expense) => {
-      if (isReadOnly) return
+      if (isReadOnly || isTripMergedExpense(expense.id)) return
       setDeleteTarget(expense)
     },
-    [isReadOnly],
+    [isReadOnly, isTripMergedExpense],
   )
 
   const searchResultKey = useCallback(
@@ -264,22 +307,115 @@ export function HomePage() {
     setDetailsRow(row)
   }, [])
 
+  const mergedTripForDetails = useMemo(() => {
+    if (!detailsRow) return null
+    return findMergedTripForCategoryRow(detailsRow, trips)
+  }, [detailsRow, trips])
+
+  useEffect(() => {
+    if (!detailsRow || !mergedTripForDetails || !user) {
+      setTripBreakdown(null)
+      setTripBreakdownLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setTripBreakdownLoading(true)
+
+    void getTripRepository()
+      .listExpenses(user.id, mergedTripForDetails.id)
+      .then((expenses) => {
+        if (cancelled) return
+        setTripBreakdown(buildCategoryBreakdown(expenses, accountingCurrency, rates))
+      })
+      .catch(() => {
+        if (!cancelled) setTripBreakdown([])
+      })
+      .finally(() => {
+        if (!cancelled) setTripBreakdownLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [detailsRow, mergedTripForDetails, user, accountingCurrency, rates])
+
+  const tripBreakdownTotals = useMemo(() => {
+    if (!tripBreakdown?.length) {
+      return { totalWhite: 0, totalCash: 0 }
+    }
+    return tripBreakdown.reduce(
+      (acc, item) => ({
+        totalWhite: acc.totalWhite + item.totalWhite,
+        totalCash: acc.totalCash + item.totalCash,
+      }),
+      { totalWhite: 0, totalCash: 0 },
+    )
+  }, [tripBreakdown])
+
+  const handleTripMerged = useCallback(
+    async ({
+      tripName,
+      createdExpenseIds,
+    }: {
+      tripName: string
+      createdExpenseIds: string[]
+    }) => {
+      setViewMode(ViewMode.EXPENSES)
+      setPendingMergeScroll({
+        scrollKey: `otros-grande:${tripAsCategoryLabel(tripName).toLowerCase()}`,
+        createdExpenseIds,
+      })
+      await refreshExpenses()
+    },
+    [refreshExpenses],
+  )
+
+  useEffect(() => {
+    if (!pendingMergeScroll || viewMode !== ViewMode.EXPENSES || isLoadingData) return
+
+    const { scrollKey, createdExpenseIds } = pendingMergeScroll
+    const periodId = selectedPeriod?.id
+    const inActivePeriod =
+      Boolean(periodId) &&
+      createdExpenseIds.some((id) =>
+        allExpenses.some((e) => e.id === id && e.periodId === periodId),
+      )
+
+    if (!inActivePeriod) {
+      toast(
+        'El gasto del viaje quedó en otro mes. Cambiá el período para verlo.',
+      )
+    }
+
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-scroll-key="${scrollKey}"]`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setHighlightCategoryKey(scrollKey)
+        window.setTimeout(() => setHighlightCategoryKey(null), 2000)
+      }
+    })
+
+    setPendingMergeScroll(null)
+  }, [pendingMergeScroll, viewMode, isLoadingData, allExpenses, selectedPeriod?.id, rows])
+
   const handleEditExpenseFromDetails = useCallback(
     (expense: Expense) => {
-      if (isReadOnly || !detailsRow) return
+      if (isReadOnly || !detailsRow || isTripMergedExpense(expense.id)) return
       const row = detailsRow
       setDetailsRow(null)
       setAmountMode({ type: 'edit', row, expense })
     },
-    [isReadOnly, detailsRow],
+    [isReadOnly, detailsRow, isTripMergedExpense],
   )
 
   const handleDeleteExpenseFromDetails = useCallback(
     (expense: Expense) => {
-      if (isReadOnly) return
+      if (isReadOnly || isTripMergedExpense(expense.id)) return
       setDeleteTarget(expense)
     },
-    [isReadOnly],
+    [isReadOnly, isTripMergedExpense],
   )
 
   const handleRemoveCategoryRow = useCallback((row: CategoryRowModel) => {
@@ -328,6 +464,11 @@ export function HomePage() {
 
     if (amount === null) {
       toast.error('Importe inválido')
+      return
+    }
+
+    if (mode.type === 'edit' && isTripMergedExpense(mode.expense.id)) {
+      toast.error('Este gasto proviene de un viaje cerrado y no se puede editar')
       return
     }
 
@@ -414,7 +555,7 @@ export function HomePage() {
   }
 
   const handleDelete = async () => {
-    if (!deleteTarget || isReadOnly) return
+    if (!deleteTarget || isReadOnly || isTripMergedExpense(deleteTarget.id)) return
     const id = deleteTarget.id
     setDeleteTarget(null)
     setBusyRowKey(id)
@@ -608,10 +749,22 @@ export function HomePage() {
       )}
 
       <div className="mb-4">
-        <ViewTabs value={viewMode} onChange={setViewMode} disabled={locked && !isReadOnly} />
+        <ViewTabs
+          value={viewMode}
+          onChange={setViewMode}
+          disabled={locked && !isReadOnly}
+          showTrips
+        />
       </div>
 
-      {viewMode === ViewMode.INCOME && settings && selectedPeriod ? (
+      {viewMode === ViewMode.TRIPS ? (
+        <Suspense fallback={<p className="py-8 text-center text-[var(--muted)]">Cargando…</p>}>
+          <TripPanel
+            onAllTripsClosed={() => setViewMode(ViewMode.EXPENSES)}
+            onTripMerged={handleTripMerged}
+          />
+        </Suspense>
+      ) : viewMode === ViewMode.INCOME && settings && selectedPeriod ? (
         <IncomePanel
           incomes={allIncomes}
           expenses={visibleExpenses}
@@ -681,6 +834,7 @@ export function HomePage() {
                 accountingCurrency={accountingCurrency}
                 rates={rates}
                 disabled={locked}
+                lockedExpenseIds={mergedExpenseIds}
                 canRemoveCategory={
                   result.kind === 'category'
                     ? canRemoveCustomCategory(result.row)
@@ -703,6 +857,11 @@ export function HomePage() {
                 accountingCurrency={accountingCurrency}
                 rates={rates}
                 disabled={locked}
+                scrollKey={categoryRowScrollKey(row)}
+                highlighted={highlightCategoryKey === categoryRowScrollKey(row)}
+                lastExpenseLocked={
+                  row.lastExpense ? isTripMergedExpense(row.lastExpense.id) : false
+                }
                 canRemoveCategory={canRemoveCustomCategory(row)}
                 onRegister={handleRegisterRow}
                 onEdit={handleEditRow}
@@ -841,17 +1000,35 @@ export function HomePage() {
         allIncomes={allIncomes}
         periods={periods}
         monthMode={settings?.monthMode ?? MonthMode.AUTOMATIC}
+        tripsModuleEnabled={settings?.tripsModuleEnabled ?? false}
         onClose={() => setMenuOpen(false)}
         onClosePeriod={async () => {
           await closePeriod()
         }}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => {
+          setMenuOpen(false)
+          requestAnimationFrame(() => setSettingsOpen(true))
+        }}
         onOpenOnboarding={() => {
           setOnboardingMode('reconfigure')
           setOnboardingOpen(true)
         }}
         onOpenImport={() => setImportOpen(true)}
         onOpenCardStatementImport={() => setImportStatementOpen(true)}
+        onToggleTripsModule={async () => {
+          if (!settings) return
+          try {
+            const next = !settings.tripsModuleEnabled
+            await updateSettings({ tripsModuleEnabled: next })
+            toast.success(next ? 'Módulo de viajes activado' : 'Módulo de viajes desactivado')
+            if (!next && viewMode === ViewMode.TRIPS) {
+              setViewMode(ViewMode.EXPENSES)
+            }
+          } catch (error) {
+            toast.error(getErrorMessage(error, 'No se pudo actualizar el módulo de viajes'))
+          }
+        }}
+        onOpenTripHistory={() => setTripHistoryOpen(true)}
       />
 
       {detailsRow !== null && (
@@ -861,12 +1038,23 @@ export function HomePage() {
             row={detailsRow}
             accountType={accountType}
             items={detailsItems}
-            totalWhite={detailsAccountTotals.totalWhite}
-            totalCash={detailsAccountTotals.totalCash}
+            totalWhite={
+              mergedTripForDetails && tripBreakdown
+                ? tripBreakdownTotals.totalWhite
+                : detailsAccountTotals.totalWhite
+            }
+            totalCash={
+              mergedTripForDetails && tripBreakdown
+                ? tripBreakdownTotals.totalCash
+                : detailsAccountTotals.totalCash
+            }
             enabledAccounts={enabledAccounts}
             accountingCurrency={accountingCurrency}
             rates={rates}
             isReadOnly={isReadOnly}
+            lockedExpenseIds={mergedExpenseIds}
+            tripBreakdown={mergedTripForDetails ? tripBreakdown : null}
+            tripBreakdownLoading={mergedTripForDetails ? tripBreakdownLoading : false}
             onClose={() => setDetailsRow(null)}
             onRemoveCategory={
               detailsRow.isOtrosGrande && !isReadOnly
@@ -886,9 +1074,17 @@ export function HomePage() {
       )}
 
       {settingsOpen && (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-[55] flex items-center justify-center bg-[var(--overlay)]">
+              <p className="rounded-xl bg-[var(--surface)] px-4 py-3 text-sm text-[var(--muted)]">
+                Cargando configuración…
+              </p>
+            </div>
+          }
+        >
           <SettingsPanel
-            open
+            open={settingsOpen}
             onClose={() => setSettingsOpen(false)}
             onOpenOnboarding={() => {
               setOnboardingMode('reconfigure')
@@ -946,6 +1142,21 @@ export function HomePage() {
             createExpense={createExpense}
             removeExpense={removeExpense}
             updateSettings={updateSettings}
+          />
+        </Suspense>
+      )}
+
+      {tripHistoryOpen && (
+        <Suspense fallback={null}>
+          <TripHistoryPanel
+            open
+            onClose={() => setTripHistoryOpen(false)}
+            onTripReopened={async () => {
+              if (!settings?.tripsModuleEnabled) {
+                await updateSettings({ tripsModuleEnabled: true })
+              }
+              setViewMode(ViewMode.TRIPS)
+            }}
           />
         </Suspense>
       )}

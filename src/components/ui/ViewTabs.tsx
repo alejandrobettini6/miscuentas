@@ -3,20 +3,26 @@ import { ViewMode } from '@/types/enums'
 const VIEW_LABELS: Record<ViewMode, string> = {
   [ViewMode.EXPENSES]: 'Gastos',
   [ViewMode.INCOME]: 'Ingresos',
+  [ViewMode.TRIPS]: 'Viajes',
 }
 
 interface ViewTabsProps {
   value: ViewMode
   onChange: (value: ViewMode) => void
   disabled?: boolean
+  showTrips?: boolean
 }
 
-export function ViewTabs({ value, onChange, disabled }: ViewTabsProps) {
-  const views = [ViewMode.EXPENSES, ViewMode.INCOME]
+export function ViewTabs({ value, onChange, disabled, showTrips = false }: ViewTabsProps) {
+  const views = showTrips
+    ? [ViewMode.EXPENSES, ViewMode.INCOME, ViewMode.TRIPS]
+    : [ViewMode.EXPENSES, ViewMode.INCOME]
+
+  const cols = views.length === 3 ? 'grid-cols-3' : 'grid-cols-2'
 
   return (
     <div
-      className="grid grid-cols-2 gap-1 rounded-2xl bg-[var(--fill)] p-1"
+      className={`grid ${cols} gap-1 rounded-2xl bg-[var(--fill)] p-1`}
       role="tablist"
       aria-label="Vista"
     >

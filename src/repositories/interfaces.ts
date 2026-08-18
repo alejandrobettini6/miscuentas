@@ -1,12 +1,18 @@
 import type {
   CreateExpenseInput,
+  CreateTripExpenseInput,
+  CreateTripInput,
   Expense,
   ImportAccountsPayload,
   Income,
   Period,
   Settings,
+  Trip,
+  TripExpense,
   UpdateExpenseInput,
   UpdateSettingsInput,
+  UpdateTripExpenseInput,
+  UpdateTripInput,
   CreateIncomeInput,
   UpdateIncomeInput,
   User,
@@ -79,6 +85,39 @@ export interface IncomeRepository {
   ): Promise<Income>
   remove(userId: string, incomeId: string): Promise<void>
   replaceAll(userId: string, incomes: Income[]): Promise<void>
+}
+
+export interface TripRepository {
+  listTrips(userId: string): Promise<Trip[]>
+  createTrip(userId: string, input: CreateTripInput): Promise<Trip>
+  updateTrip(userId: string, tripId: string, input: UpdateTripInput): Promise<Trip>
+  closeTrip(userId: string, tripId: string): Promise<Trip>
+  reopenTrip(userId: string, tripId: string): Promise<Trip>
+  deleteTrip(userId: string, tripId: string): Promise<void>
+
+  listExpenses(userId: string, tripId: string): Promise<TripExpense[]>
+  createExpense(
+    userId: string,
+    input: CreateTripExpenseInput,
+    trip: Trip,
+    settings: Settings,
+  ): Promise<TripExpense>
+  updateExpense(
+    userId: string,
+    expenseId: string,
+    input: UpdateTripExpenseInput,
+    trip: Trip,
+    settings: Settings,
+  ): Promise<TripExpense>
+  removeExpense(userId: string, expenseId: string): Promise<void>
+
+  setMergeData(
+    userId: string,
+    tripId: string,
+    mergeMode: string,
+    mergedExpenseIds: string[],
+  ): Promise<void>
+  clearMergeData(userId: string, tripId: string): Promise<void>
 }
 
 export interface ImportRepository {
