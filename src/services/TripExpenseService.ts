@@ -36,7 +36,6 @@ export class TripExpenseService {
       input.accountType,
       input.originalCurrency,
       input.originalAmount,
-      trip,
       settings,
     )
 
@@ -81,7 +80,6 @@ export class TripExpenseService {
       expense.accountType,
       input.originalCurrency,
       input.originalAmount,
-      trip,
       settings,
     )
 
@@ -99,7 +97,6 @@ export class TripExpenseService {
     accountType: AccountType,
     currency: Currency,
     amount: number,
-    trip: Trip,
     settings: Settings,
   ): { exchangeRate: number; accountingAmount: number } {
     const accountingCurrency = resolveAccountingCurrency(settings)

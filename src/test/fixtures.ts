@@ -19,6 +19,7 @@ export function testSettings(partial: Partial<Settings> = {}): Settings {
     accountingCurrency: DEFAULT_SETTINGS.accountingCurrency,
     summaryDisplayMode: DEFAULT_SETTINGS.summaryDisplayMode,
     onboardingCompleted: true,
+    tripsModuleEnabled: true,
     updatedAt: new Date().toISOString(),
     ...partial,
   }
