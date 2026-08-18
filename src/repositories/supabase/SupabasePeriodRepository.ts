@@ -104,7 +104,10 @@ export class SupabasePeriodRepository implements PeriodRepository {
     monthlyLimit: number,
   ): Promise<Period> {
     const supabase = getSupabaseClient()
-    const closed = PeriodService.closePeriod(active)
+    const closed = {
+      ...PeriodService.closePeriod(active),
+      monthlyLimitSnapshot: monthlyLimit,
+    }
 
     const { error: closeError } = await supabase
       .from('periods')

@@ -5,6 +5,7 @@ import { AccountType, BudgetColor, Currency, SummaryDisplayMode } from '@/types/
 import type { MonthlySummary } from '@/types/models'
 import { formatMoneyLabel, formatPercent } from '@/utils/formatters'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { PeriodLimitSummary } from '@/components/summary/PeriodLimitSummary'
 
 const HIDDEN_PLACEHOLDER = '••••••'
 
@@ -24,6 +25,8 @@ interface MonthlySummaryCardProps {
   displayMode?: SummaryDisplayMode
   amountsHidden?: boolean
   onToggleAmounts?: () => void
+  isClosed?: boolean
+  monthlyLimit?: number
 }
 
 function MonthlySummaryCardComponent({
@@ -35,6 +38,8 @@ function MonthlySummaryCardComponent({
   displayMode = SummaryDisplayMode.LIMIT,
   amountsHidden = false,
   onToggleAmounts,
+  isClosed = false,
+  monthlyLimit = 0,
 }: MonthlySummaryCardProps) {
   const showAccountBreakdown = enabledAccounts.length === 2
 
@@ -65,6 +70,44 @@ function MonthlySummaryCardComponent({
         </p>
 
         {showAccountBreakdown && (
+          <div className="mt-4 space-y-1 text-sm text-[var(--muted)]">
+            {enabledAccounts.includes(AccountType.WHITE) && (
+              <p>
+                {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
+                <span className="font-semibold text-[var(--text)]">
+                  {money(summary.totalWhite)}
+                </span>
+              </p>
+            )}
+            {enabledAccounts.includes(AccountType.CASH) && (
+              <p>
+                {ACCOUNT_LABELS[AccountType.CASH]}{' '}
+                <span className="font-semibold text-[var(--text)]">
+                  {money(summary.totalCash)}
+                </span>
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  if (displayMode === SummaryDisplayMode.LIMIT && isClosed) {
+    return (
+      <section className="rounded-2xl bg-[var(--surface)] p-5">
+        <div className="flex items-start justify-between gap-2">
+          <PeriodLimitSummary
+            totalSpent={summary.totalSpent}
+            monthlyLimit={monthlyLimit}
+            accountingCurrency={accountingCurrency}
+            amountsHidden={amountsHidden}
+            className="flex-1"
+          />
+          {visibilityToggle}
+        </div>
+
+        {enabledAccounts.length > 0 && (
           <div className="mt-4 space-y-1 text-sm text-[var(--muted)]">
             {enabledAccounts.includes(AccountType.WHITE) && (
               <p>
