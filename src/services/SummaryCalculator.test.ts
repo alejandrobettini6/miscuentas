@@ -69,4 +69,10 @@ describe('SummaryCalculator', () => {
     expect(summary.totalSpent).toBe(70)
     expect(summary.available).toBe(130)
   })
+
+  it('calcula el monto excedido del límite', () => {
+    expect(SummaryCalculator.exceededAmount(1800, 1500)).toBe(300)
+    expect(SummaryCalculator.exceededAmount(1500, 1500)).toBe(0)
+    expect(SummaryCalculator.exceededAmount(1200, 1500)).toBe(0)
+  })
 })

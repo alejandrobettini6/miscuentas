@@ -174,9 +174,15 @@ export function HomePage() {
 
   const customCategories = settings?.customCategories ?? []
 
+  // Períodos cerrados antes de congelar el límite pueden tener snapshot null; fallback al límite actual.
+  const periodLimit = isReadOnly
+    ? (selectedPeriod?.monthlyLimitSnapshot ?? settings?.monthlyLimit ?? 0)
+    : undefined
+
   const { summary, color, progress, rows, accountingCurrency, rates } = useSummary(
     visibleExpenses,
     accountType,
+    periodLimit,
   )
 
   const activeSearchQuery = searchQueries[accountType]
@@ -638,6 +644,8 @@ export function HomePage() {
         displayMode={settings?.summaryDisplayMode ?? SummaryDisplayMode.LIMIT}
         amountsHidden={amountsHidden}
         onToggleAmounts={toggleAmountsHidden}
+        isClosed={isReadOnly}
+        monthlyLimit={periodLimit ?? settings?.monthlyLimit ?? 0}
       />
 
       <div className="mt-4">

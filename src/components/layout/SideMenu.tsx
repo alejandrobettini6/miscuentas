@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Monitor, Moon, Settings, Sun, X } from 'lucide-react'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useSettingsContext } from '@/contexts/SettingsContext'
@@ -10,6 +10,9 @@ import {
   shouldShowUsdWhiteRate,
 } from '@/services/AccountingCurrency'
 import { ExportService } from '@/services/ExportService'
+import { PeriodService } from '@/services/PeriodService'
+import { SummaryCalculator } from '@/services/SummaryCalculator'
+import { VisibilityProjector } from '@/services/VisibilityProjector'
 import type { Expense, Income, Period } from '@/types/models'
 import {
   formatAmountFromNumber,
@@ -20,6 +23,7 @@ import {
 import { AmountInput } from '@/components/ui/AmountInput'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
+import { PeriodLimitSummary } from '@/components/summary/PeriodLimitSummary'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '@/utils/errors'
 import { Currency, MonthMode, SummaryDisplayMode } from '@/types/enums'
@@ -70,6 +74,29 @@ export function SideMenu({
   }, [activeField])
 
   useBackButtonClose(open, onClose)
+
+  const closePreview = useMemo(() => {
+    if (!settings || settings.summaryDisplayMode === SummaryDisplayMode.TOTAL) return null
+    const activePeriod = PeriodService.getActive(periods)
+    if (!activePeriod) return null
+    const activeExpenses = VisibilityProjector.projectPeriod(
+      allExpenses,
+      settings,
+      activePeriod.id,
+    )
+    const currency = resolveAccountingCurrency(settings)
+    const summary = SummaryCalculator.calculate(
+      activeExpenses,
+      settings.monthlyLimit,
+      currency,
+      { usdWhite: settings.usdWhite, usdCash: settings.usdCash },
+    )
+    return {
+      totalSpent: summary.totalSpent,
+      monthlyLimit: settings.monthlyLimit,
+      accountingCurrency: currency,
+    }
+  }, [settings, periods, allExpenses])
 
   if (!open) return null
 
@@ -291,6 +318,15 @@ export function SideMenu({
         <p className="mb-4 text-[var(--muted)]">
           ¿Cerrar el mes actual? Quedará en solo lectura y se abrirá el siguiente.
         </p>
+        {closePreview && (
+          <div className="mb-4 rounded-xl bg-[var(--surface-2)] p-4">
+            <PeriodLimitSummary
+              totalSpent={closePreview.totalSpent}
+              monthlyLimit={closePreview.monthlyLimit}
+              accountingCurrency={closePreview.accountingCurrency}
+            />
+          </div>
+        )}
         <div className="flex gap-3">
           <Button variant="secondary" className="flex-1" onClick={() => setCloseStep(0)}>
             No
@@ -305,6 +341,15 @@ export function SideMenu({
         <p className="mb-4 text-[var(--muted)]">
           Los movimientos del mes cerrado se conservan. ¿Confirmás?
         </p>
+        {closePreview && (
+          <div className="mb-4 rounded-xl bg-[var(--surface-2)] p-4">
+            <PeriodLimitSummary
+              totalSpent={closePreview.totalSpent}
+              monthlyLimit={closePreview.monthlyLimit}
+              accountingCurrency={closePreview.accountingCurrency}
+            />
+          </div>
+        )}
         <div className="flex gap-3">
           <Button variant="secondary" className="flex-1" onClick={() => setCloseStep(0)}>
             Cancelar
