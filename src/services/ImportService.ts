@@ -110,6 +110,7 @@ export class ImportService {
           ? true
           : settingsRaw.onboardingCompleted,
       ),
+      tripsModuleEnabled: Boolean(settingsRaw.tripsModuleEnabled ?? true),
       updatedAt: new Date().toISOString(),
     }
 

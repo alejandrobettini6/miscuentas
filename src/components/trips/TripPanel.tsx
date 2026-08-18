@@ -11,8 +11,8 @@ import { TripCategoryAggregator } from '@/services/TripCategoryAggregator'
 import { TripMergeService, type MergeDestination } from '@/services/TripMergeService'
 import { TripSummaryCalculator } from '@/services/TripSummaryCalculator'
 import { getTripRepository } from '@/repositories'
-import { AccountType, BudgetColor, Currency, SummaryDisplayMode, TripMergeMode, TripStatus } from '@/types/enums'
-import type { TripCategoryRow as TripCategoryRowModel, TripExpense, Trip } from '@/types/models'
+import { AccountType, BudgetColor, Currency, TripMergeMode, TripStatus } from '@/types/enums'
+import type { TripCategoryRow as TripCategoryRowModel, TripExpense } from '@/types/models'
 import { getErrorMessage } from '@/utils/errors'
 import {
   isValidCustomCategoryName,

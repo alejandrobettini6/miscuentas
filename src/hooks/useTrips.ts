@@ -13,7 +13,6 @@ import { queryKeys } from './queryKeys'
 
 export function useTrips() {
   const { user } = useAuthContext()
-  const { settings } = useSettingsContext()
   const queryClient = useQueryClient()
   const repo = getTripRepository()
   const userId = user?.id ?? ''
