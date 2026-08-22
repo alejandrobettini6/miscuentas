@@ -5,6 +5,7 @@ import {
   isValidCustomCategoryName,
   normalizeCustomCategoryName,
   parseAmountInput,
+  parseBalanceAmountInput,
 } from './amount'
 
 describe('parseAmountInput', () => {
@@ -24,6 +25,15 @@ describe('parseAmountInput', () => {
     expect(parseAmountInput('')).toBeNull()
     expect(parseAmountInput('0')).toBeNull()
     expect(parseAmountInput('-5')).toBeNull()
+  })
+})
+
+describe('parseBalanceAmountInput', () => {
+  it('parsea miles con punto y permite cero', () => {
+    expect(parseBalanceAmountInput('1.000')).toBe(1000)
+    expect(parseBalanceAmountInput('1.500')).toBe(1500)
+    expect(parseBalanceAmountInput('100')).toBe(100)
+    expect(parseBalanceAmountInput('0')).toBe(0)
   })
 })
 

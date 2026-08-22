@@ -29,6 +29,9 @@ export class PeriodService {
       startedAt: now.toISOString(),
       closedAt: status === PeriodStatus.CLOSED ? now.toISOString() : null,
       monthlyLimitSnapshot: options?.monthlyLimitSnapshot ?? null,
+      savingsAppliedAt: null,
+      savingsAppliedAmount: null,
+      savingsAppliedLocation: null,
     }
   }
 

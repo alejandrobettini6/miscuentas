@@ -111,6 +111,8 @@ export class ImportService {
           : settingsRaw.onboardingCompleted,
       ),
       tripsModuleEnabled: Boolean(settingsRaw.tripsModuleEnabled ?? true),
+      savingsLocations: [],
+      savingsBalances: {},
       updatedAt: new Date().toISOString(),
     }
 
@@ -207,6 +209,9 @@ export class ImportService {
             item.monthlyLimitSnapshot === null || item.monthlyLimitSnapshot === undefined
               ? null
               : Number(item.monthlyLimitSnapshot),
+          savingsAppliedAt: null,
+          savingsAppliedAmount: null,
+          savingsAppliedLocation: null,
         })
       })
     } else {

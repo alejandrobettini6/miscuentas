@@ -65,4 +65,6 @@ export const DEFAULT_SETTINGS = {
   accountingCurrency: Currency.USD,
   summaryDisplayMode: SummaryDisplayMode.LIMIT,
   onboardingCompleted: false,
+  savingsLocations: [] as string[],
+  savingsBalances: {} as Record<string, number>,
 } as const

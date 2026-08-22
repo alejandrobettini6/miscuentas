@@ -153,6 +153,10 @@ function resolveCustomCategoryKey(
     return fromList ?? suffix
   }
 
+  if (trimmed.startsWith('Viaje ')) {
+    return trimmed
+  }
+
   return null
 }
 

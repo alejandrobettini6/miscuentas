@@ -37,11 +37,12 @@ interface SideMenuProps {
   monthMode: MonthMode
   tripsModuleEnabled?: boolean
   onClose: () => void
-  onClosePeriod: () => Promise<void>
+  onRequestClosePeriod: () => Promise<boolean>
   onOpenSettings: () => void
   onOpenOnboarding: () => void
   onOpenImport: () => void
   onOpenCardStatementImport: () => void
+  onOpenSavings?: () => void
   onToggleTripsModule?: () => void
   onOpenTripHistory?: () => void
 }
@@ -57,13 +58,14 @@ export function SideMenu({
   monthMode,
   tripsModuleEnabled = false,
   onClose,
-  onClosePeriod,
+  onRequestClosePeriod,
   onOpenSettings,
   onOpenOnboarding,
   onOpenImport,
   onOpenCardStatementImport,
   onToggleTripsModule,
   onOpenTripHistory,
+  onOpenSavings,
 }: SideMenuProps) {
   const { logout } = useAuthContext()
   const { settings, updateSettings } = useSettingsContext()
@@ -192,10 +194,12 @@ export function SideMenu({
 
   const confirmClosePeriod = async () => {
     try {
-      await onClosePeriod()
+      const closed = await onRequestClosePeriod()
       setCloseStep(0)
       onClose()
-      toast.success('Mes cerrado')
+      if (closed) {
+        toast.success('Mes cerrado')
+      }
     } catch {
       toast.error('No se pudo cerrar el mes')
     }
@@ -244,6 +248,15 @@ export function SideMenu({
               <MenuButton
                 label={monthlyLimitLabel}
                 onClick={() => openField('monthlyLimit')}
+              />
+            )}
+            {onOpenSavings && (
+              <MenuButton
+                label="Ahorros"
+                onClick={() => {
+                  onClose()
+                  onOpenSavings()
+                }}
               />
             )}
           </Section>

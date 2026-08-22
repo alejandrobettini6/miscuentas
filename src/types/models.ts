@@ -34,6 +34,9 @@ export interface Settings {
   summaryDisplayMode: SummaryDisplayMode
   onboardingCompleted: boolean
   tripsModuleEnabled: boolean
+  /** Cajitas de ahorro (apps, bancos, cash, etc.). */
+  savingsLocations: string[]
+  savingsBalances: Record<string, number>
   updatedAt: string
 }
 
@@ -46,6 +49,10 @@ export interface Period {
   startedAt: string
   closedAt: string | null
   monthlyLimitSnapshot: number | null
+  /** Seteado al sumar ahorro del cierre; no se muestra en UI. */
+  savingsAppliedAt: string | null
+  savingsAppliedAmount: number | null
+  savingsAppliedLocation: string | null
 }
 
 export interface Expense {
@@ -169,6 +176,13 @@ export interface UpdateSettingsInput {
   summaryDisplayMode?: SummaryDisplayMode
   onboardingCompleted?: boolean
   tripsModuleEnabled?: boolean
+  savingsLocations?: string[]
+  savingsBalances?: Record<string, number>
+}
+
+export interface SavingsLocationRow {
+  name: string
+  amount: number
 }
 
 export interface Trip {
