@@ -10,6 +10,7 @@ interface ClosePeriodSavingsModalProps {
   periodLabel: string
   locations: string[]
   accountingCurrency: Currency
+  mode?: 'beforeClose' | 'catchUp'
   busy?: boolean
   onConfirm: (locationName: string) => void
   onCancel: () => void
@@ -21,10 +22,12 @@ export function ClosePeriodSavingsModal({
   periodLabel,
   locations,
   accountingCurrency,
+  mode = 'beforeClose',
   busy = false,
   onConfirm,
   onCancel,
 }: ClosePeriodSavingsModalProps) {
+  const isCatchUp = mode === 'catchUp'
   const subtitle =
     amount > 0
       ? `${savingsCurrencySubtitle(accountingCurrency)} · ¿A qué cajita lo sumamos?`
@@ -45,7 +48,9 @@ export function ClosePeriodSavingsModal({
 
       {locations.length === 0 ? (
         <p className="mb-4 text-sm text-[var(--red)]">
-          Agregá al menos una cajita en Ahorros antes de cerrar el mes.
+          {isCatchUp
+            ? 'Creá al menos una cajita en Ahorros (menú) para registrar meses anteriores.'
+            : 'Agregá al menos una cajita en Ahorros antes de cerrar el mes.'}
         </p>
       ) : (
         <div className="mb-4 flex max-h-48 flex-col gap-2 overflow-y-auto">
@@ -64,7 +69,7 @@ export function ClosePeriodSavingsModal({
       )}
 
       <Button variant="secondary" className="w-full" disabled={busy} onClick={onCancel}>
-        Cancelar
+        {isCatchUp ? 'Omitir' : 'Cancelar'}
       </Button>
     </Modal>
   )
