@@ -137,7 +137,23 @@ export class LocalPeriodRepository implements PeriodRepository {
   async replaceAll(userId: string, periods: Period[]): Promise<void> {
     await this.save(
       userId,
-      periods.map((p) => ({ ...p, userId })),
+      periods.map((p) => ({
+        ...p,
+        userId,
+        savingsAppliedAt: p.savingsAppliedAt ?? null,
+        savingsAppliedAmount: p.savingsAppliedAmount ?? null,
+        savingsAppliedLocation: p.savingsAppliedLocation ?? null,
+      })),
     )
+  }
+
+  async update(userId: string, period: Period): Promise<Period> {
+    const periods = await this.list(userId)
+    const index = periods.findIndex((p) => p.id === period.id)
+    if (index < 0) throw new Error('Período no encontrado')
+    const next = [...periods]
+    next[index] = { ...period, userId }
+    await this.save(userId, next)
+    return next[index]
   }
 }

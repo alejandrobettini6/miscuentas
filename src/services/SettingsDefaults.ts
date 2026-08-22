@@ -92,6 +92,8 @@ export function createDefaultSettings(userId: string, now = new Date()): Setting
     summaryDisplayMode: DEFAULT_SETTINGS.summaryDisplayMode,
     onboardingCompleted: DEFAULT_SETTINGS.onboardingCompleted,
     tripsModuleEnabled: true,
+    savingsLocations: [...DEFAULT_SETTINGS.savingsLocations],
+    savingsBalances: { ...DEFAULT_SETTINGS.savingsBalances },
     updatedAt: now.toISOString(),
   }
 }
@@ -120,6 +122,8 @@ export function normalizeSettings(
     summaryDisplayMode: normalizeSummaryDisplayMode(raw.summaryDisplayMode),
     onboardingCompleted: Boolean(raw.onboardingCompleted),
     tripsModuleEnabled: Boolean(raw.tripsModuleEnabled),
+    savingsLocations: normalizeSavingsLocations(raw.savingsLocations),
+    savingsBalances: normalizeSavingsBalances(raw.savingsBalances),
     updatedAt: raw.updatedAt ?? new Date().toISOString(),
   }
 }
@@ -185,8 +189,36 @@ export function mergeSettingsUpdate(
       input.tripsModuleEnabled !== undefined
         ? Boolean(input.tripsModuleEnabled)
         : current.tripsModuleEnabled,
+    savingsLocations:
+      input.savingsLocations !== undefined
+        ? normalizeSavingsLocations(input.savingsLocations)
+        : current.savingsLocations,
+    savingsBalances:
+      input.savingsBalances !== undefined
+        ? normalizeSavingsBalances(input.savingsBalances)
+        : current.savingsBalances,
     updatedAt: new Date().toISOString(),
   }
+}
+
+function normalizeSavingsLocations(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item) => item.length > 0)
+}
+
+function normalizeSavingsBalances(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const result: Record<string, number> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const name = key.trim()
+    if (!name) continue
+    const amount = Number(value)
+    if (!Number.isFinite(amount)) continue
+    result[name] = Math.round(amount * 100) / 100
+  }
+  return result
 }
 
 function uniqueEnum<T extends string>(values: T[]): T[] {

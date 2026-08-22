@@ -24,6 +24,8 @@ interface SettingsRow {
   summary_display_mode?: string | null
   onboarding_completed?: boolean | null
   trips_module_enabled?: boolean | null
+  savings_locations?: string[] | Record<string, unknown> | null
+  savings_balances?: Record<string, number> | null
   updated_at: string
 }
 
@@ -44,6 +46,11 @@ function mapRow(row: SettingsRow): Settings {
       summaryDisplayMode: row.summary_display_mode as Settings['summaryDisplayMode'],
       onboardingCompleted: Boolean(row.onboarding_completed),
       tripsModuleEnabled: Boolean(row.trips_module_enabled),
+      savingsLocations: Array.isArray(row.savings_locations) ? row.savings_locations : [],
+      savingsBalances:
+        row.savings_balances && typeof row.savings_balances === 'object'
+          ? (row.savings_balances as Record<string, number>)
+          : {},
       updatedAt: row.updated_at,
     },
     row.user_id,
@@ -52,7 +59,7 @@ function mapRow(row: SettingsRow): Settings {
 
 function toRow(
   settings: Settings,
-  options?: { includeIncomeSources?: boolean; includeTripsModule?: boolean },
+  options?: { includeIncomeSources?: boolean; includeTripsModule?: boolean; includeSavings?: boolean },
 ) {
   const row: Record<string, unknown> = {
     user_id: settings.userId,
@@ -78,6 +85,11 @@ function toRow(
     row.income_sources = settings.incomeSources
   }
 
+  if (options?.includeSavings !== false) {
+    row.savings_locations = settings.savingsLocations
+    row.savings_balances = settings.savingsBalances
+  }
+
   return row
 }
 
@@ -88,11 +100,19 @@ async function writeSettingsRow(
 ): Promise<SettingsRow> {
   const supabase = getSupabaseClient()
 
-  const optionSets: Array<{ includeIncomeSources?: boolean; includeTripsModule?: boolean }> = [
+  const optionSets: Array<{
+    includeIncomeSources?: boolean
+    includeTripsModule?: boolean
+    includeSavings?: boolean
+  }> = [
     {},
     { includeIncomeSources: false },
     { includeTripsModule: false },
+    { includeSavings: false },
     { includeIncomeSources: false, includeTripsModule: false },
+    { includeIncomeSources: false, includeSavings: false },
+    { includeTripsModule: false, includeSavings: false },
+    { includeIncomeSources: false, includeTripsModule: false, includeSavings: false },
   ]
 
   let lastError: unknown = null
@@ -112,7 +132,9 @@ async function writeSettingsRow(
 
       if (
         isMissingColumnError(result.error, 'income_sources') ||
-        isMissingColumnError(result.error, 'trips_module_enabled')
+        isMissingColumnError(result.error, 'trips_module_enabled') ||
+        isMissingColumnError(result.error, 'savings_locations') ||
+        isMissingColumnError(result.error, 'savings_balances')
       ) {
         lastError = result.error
         continue
@@ -127,7 +149,9 @@ async function writeSettingsRow(
 
     if (
       isMissingColumnError(result.error, 'income_sources') ||
-      isMissingColumnError(result.error, 'trips_module_enabled')
+      isMissingColumnError(result.error, 'trips_module_enabled') ||
+      isMissingColumnError(result.error, 'savings_locations') ||
+      isMissingColumnError(result.error, 'savings_balances')
     ) {
       lastError = result.error
       continue

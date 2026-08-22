@@ -20,6 +20,8 @@ export function testSettings(partial: Partial<Settings> = {}): Settings {
     summaryDisplayMode: DEFAULT_SETTINGS.summaryDisplayMode,
     onboardingCompleted: true,
     tripsModuleEnabled: true,
+    savingsLocations: [...DEFAULT_SETTINGS.savingsLocations],
+    savingsBalances: { ...DEFAULT_SETTINGS.savingsBalances },
     updatedAt: new Date().toISOString(),
     ...partial,
   }

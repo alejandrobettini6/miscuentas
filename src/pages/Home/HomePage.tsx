@@ -47,6 +47,11 @@ const TripHistoryPanel = lazy(() =>
     default: m.TripHistoryPanel,
   })),
 )
+const SavingsPanel = lazy(() =>
+  import('@/components/savings/SavingsPanel').then((m) => ({
+    default: m.SavingsPanel,
+  })),
+)
 import { MonthlySummaryCard } from '@/components/summary/MonthlySummaryCard'
 import { IncomePanel } from '@/components/income/IncomePanel'
 import { AmountSheet } from '@/components/ui/AmountSheet'
@@ -78,9 +83,13 @@ import {
 } from '@/services/TripMergedBreakdownService'
 import { tripAsCategoryLabel } from '@/services/TripCategoryMapper'
 import { VisibilityProjector } from '@/services/VisibilityProjector'
+import { SavingsService } from '@/services/SavingsService'
+import { resolveAccountingCurrency } from '@/services/AccountingCurrency'
+import { ClosePeriodSavingsModal } from '@/components/savings/ClosePeriodSavingsModal'
+import { useSavings } from '@/hooks/useSavings'
 import { categoryRowScrollKey } from '@/utils/categoryScrollKey'
 import { AccountType, Category, Currency, MonthMode, PeriodStatus, SummaryDisplayMode, ViewMode } from '@/types/enums'
-import type { CategoryRow as CategoryRowModel, Expense } from '@/types/models'
+import type { CategoryRow as CategoryRowModel, Expense, Period } from '@/types/models'
 import { getMonthLabelFromKey, getYearMonthKey, nextYearMonth } from '@/utils/date'
 import { getErrorMessage } from '@/utils/errors'
 import {
@@ -164,6 +173,14 @@ export function HomePage() {
     [AccountType.CASH]: '',
   })
   const [tripHistoryOpen, setTripHistoryOpen] = useState(false)
+  const [savingsPanelOpen, setSavingsPanelOpen] = useState(false)
+  const [closeSavingsFlow, setCloseSavingsFlow] = useState<{
+    mode: 'beforeClose' | 'catchUp'
+    period: Period
+    amount: number
+  } | null>(null)
+  const [closeSavingsBusy, setCloseSavingsBusy] = useState(false)
+  const { applyPeriodSavings } = useSavings()
   const [tripBreakdown, setTripBreakdown] = useState<TripCategoryBreakdownItem[] | null>(
     null,
   )
@@ -254,6 +271,98 @@ export function HomePage() {
 
   const locked = isExpenseMutating || isIncomeMutating || isClosing || busyRowKey !== null || isReadOnly
   const isLoadingData = isLoading || isIncomesLoading
+
+  const handleRequestClosePeriod = useCallback(async (): Promise<boolean> => {
+    if (!settings || !activePeriod) return false
+
+    const savings = SavingsService.calculatePeriodSavings(
+      activePeriod.id,
+      settings,
+      allIncomes,
+      allExpenses,
+    )
+
+    if (!SavingsService.isPeriodSavingsComplete(activePeriod)) {
+      setCloseSavingsFlow({
+        mode: 'beforeClose',
+        period: activePeriod,
+        amount: savings,
+      })
+      return false
+    }
+
+    await closePeriod()
+    await refreshPeriods()
+    return true
+  }, [
+    activePeriod,
+    allExpenses,
+    allIncomes,
+    closePeriod,
+    refreshPeriods,
+    settings,
+  ])
+
+  const handleCloseSavingsConfirm = useCallback(
+    async (locationName: string) => {
+      if (!closeSavingsFlow) return
+      setCloseSavingsBusy(true)
+      try {
+        await applyPeriodSavings(
+          closeSavingsFlow.period,
+          closeSavingsFlow.amount,
+          locationName,
+        )
+        if (closeSavingsFlow.mode === 'beforeClose') {
+          await closePeriod()
+        }
+        await refreshPeriods()
+        toast.success(
+          closeSavingsFlow.mode === 'beforeClose'
+            ? 'Mes cerrado'
+            : 'Ahorro asignado',
+        )
+        setCloseSavingsFlow(null)
+      } catch (error) {
+        toast.error(getErrorMessage(error, 'No se pudo asignar el ahorro'))
+      } finally {
+        setCloseSavingsBusy(false)
+      }
+    },
+    [applyPeriodSavings, closePeriod, closeSavingsFlow, refreshPeriods],
+  )
+
+  useEffect(() => {
+    if (!settings || isLoadingData || closeSavingsFlow) return
+
+    const pending = [...periods]
+      .filter(
+        (period) =>
+          period.status === PeriodStatus.CLOSED &&
+          !SavingsService.isPeriodSavingsComplete(period),
+      )
+      .sort((a, b) => b.yearMonth.localeCompare(a.yearMonth))[0]
+
+    if (!pending) return
+
+    setCloseSavingsFlow({
+      mode: 'catchUp',
+      period: pending,
+      amount: SavingsService.calculatePeriodSavings(
+        pending.id,
+        settings,
+        allIncomes,
+        allExpenses,
+      ),
+    })
+  }, [
+    allExpenses,
+    allIncomes,
+    closeSavingsFlow,
+    isLoadingData,
+    periods,
+    settings,
+  ])
 
   const handleRegisterRow = useCallback(
     (row: CategoryRowModel) => {
@@ -1002,9 +1111,7 @@ export function HomePage() {
         monthMode={settings?.monthMode ?? MonthMode.AUTOMATIC}
         tripsModuleEnabled={settings?.tripsModuleEnabled ?? false}
         onClose={() => setMenuOpen(false)}
-        onClosePeriod={async () => {
-          await closePeriod()
-        }}
+        onRequestClosePeriod={handleRequestClosePeriod}
         onOpenSettings={() => {
           setMenuOpen(false)
           requestAnimationFrame(() => setSettingsOpen(true))
@@ -1029,6 +1136,7 @@ export function HomePage() {
           }
         }}
         onOpenTripHistory={() => setTripHistoryOpen(true)}
+        onOpenSavings={() => setSavingsPanelOpen(true)}
       />
 
       {detailsRow !== null && (
@@ -1159,6 +1267,25 @@ export function HomePage() {
             }}
           />
         </Suspense>
+      )}
+
+      {savingsPanelOpen && (
+        <Suspense fallback={null}>
+          <SavingsPanel open onClose={() => setSavingsPanelOpen(false)} />
+        </Suspense>
+      )}
+
+      {closeSavingsFlow && settings && (
+        <ClosePeriodSavingsModal
+          open
+          amount={closeSavingsFlow.amount}
+          periodLabel={closeSavingsFlow.period.label}
+          locations={settings.savingsLocations}
+          accountingCurrency={resolveAccountingCurrency(settings)}
+          busy={closeSavingsBusy || isClosing}
+          onConfirm={(locationName) => void handleCloseSavingsConfirm(locationName)}
+          onCancel={() => setCloseSavingsFlow(null)}
+        />
       )}
 
       {!isReadOnly && (

@@ -57,6 +57,7 @@ export interface PeriodRepository {
    */
   createNextPeriod(userId: string, monthlyLimit: number): Promise<Period>
   replaceAll(userId: string, periods: Period[]): Promise<void>
+  update(userId: string, period: Period): Promise<Period>
 }
 
 export interface ExpenseRepository {

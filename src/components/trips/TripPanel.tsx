@@ -5,14 +5,17 @@ import { TRIP_INDIVIDUAL_MERGE_ENABLED, TRIP_OTHER_CATEGORY } from '@/constants/
 import { useSettingsContext } from '@/contexts/SettingsContext'
 import { useTrips, useTripExpenses } from '@/hooks/useTrips'
 import { useExpenses } from '@/hooks/useExpenses'
+import { useIncomes } from '@/hooks/useIncomes'
 import { usePeriods } from '@/hooks/usePeriods'
+import { useSavings } from '@/hooks/useSavings'
 import { resolveAccountingCurrency, type ExchangeRates } from '@/services/AccountingCurrency'
 import { TripCategoryAggregator } from '@/services/TripCategoryAggregator'
 import { TripMergeService, type MergeDestination } from '@/services/TripMergeService'
+import { tripAsCategoryLabel } from '@/services/TripCategoryMapper'
 import { TripSummaryCalculator } from '@/services/TripSummaryCalculator'
 import { getTripRepository } from '@/repositories'
-import { AccountType, BudgetColor, Currency, TripMergeMode, TripStatus } from '@/types/enums'
-import type { TripCategoryRow as TripCategoryRowModel, TripExpense } from '@/types/models'
+import { AccountType, BudgetColor, Currency, PeriodStatus, TripMergeMode, TripStatus } from '@/types/enums'
+import type { Expense, TripCategoryRow as TripCategoryRowModel, TripExpense } from '@/types/models'
 import { getErrorMessage } from '@/utils/errors'
 import {
   isValidCustomCategoryName,
@@ -29,6 +32,9 @@ import { TripCategoryRow } from './TripCategoryRow'
 import { TripSelector } from './TripSelector'
 import { TripSummaryCard } from './TripSummaryCard'
 import { TripSettingsSideMenu } from './TripSettingsSideMenu'
+import { TripSavingsImpactModal } from './TripSavingsImpactModal'
+import type { TripSavingsImpactPreview } from '@/services/SavingsReconciliationService'
+import { SavingsReconciliationService } from '@/services/SavingsReconciliationService'
 
 const CreateTripWizard = lazy(() =>
   import('./CreateTripWizard').then((m) => ({ default: m.CreateTripWizard })),
@@ -64,8 +70,14 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
     closeTrip,
     isMutating: tripMutating,
   } = useTrips()
-  const { createExpense: createMonthlyExpense, refresh: refreshMonthlyExpenses } = useExpenses()
-  const { periods } = usePeriods()
+  const { createExpense: createMonthlyExpense, expenses: monthlyExpenses, refresh: refreshMonthlyExpenses } =
+    useExpenses()
+  const { incomes: monthlyIncomes } = useIncomes()
+  const { periods, refresh: refreshPeriods } = usePeriods()
+  const {
+    previewTripMergeImpact,
+    reconcilePeriodsAfterMerge,
+  } = useSavings()
 
   const activeTrips = useMemo(
     () => trips.filter((t) => t.status === TripStatus.ACTIVE),
@@ -84,6 +96,14 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
   const [undoDeadline, setUndoDeadline] = useState<number | null>(null)
   const [undoExpenseId, setUndoExpenseId] = useState<string | null>(null)
   const [busyRowKey, setBusyRowKey] = useState<string | null>(null)
+  const [savingsImpactPreview, setSavingsImpactPreview] =
+    useState<TripSavingsImpactPreview | null>(null)
+  const [pendingCloseOptions, setPendingCloseOptions] = useState<{
+    merge: boolean
+    mergeMode?: TripMergeMode
+    destination?: MergeDestination
+  } | null>(null)
+  const [savingsImpactBusy, setSavingsImpactBusy] = useState(false)
 
   useEffect(() => {
     if (selectedTripId && activeTrips.some((t) => t.id === selectedTripId)) return
@@ -446,7 +466,54 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
     setCloseTripOpen(true)
   }
 
-  const handleTripClosed = async (options?: {
+  const buildMergeInputs = (
+    trip: NonNullable<typeof selectedTrip>,
+    options: {
+      merge: boolean
+      mergeMode?: TripMergeMode
+      destination?: MergeDestination
+    },
+  ) => {
+    if (!options.merge || !options.mergeMode || tripExpenses.length === 0 || !settings) {
+      return null
+    }
+
+    const activePeriod = periods.find((p) => p.status === PeriodStatus.ACTIVE)
+    if (!activePeriod) throw new Error('No hay período activo')
+
+    const destination = options.destination ?? 'by_date'
+    const mergeMode =
+      options.mergeMode === TripMergeMode.INDIVIDUAL && !TRIP_INDIVIDUAL_MERGE_ENABLED
+        ? TripMergeMode.AS_TRIP
+        : options.mergeMode
+
+    const mergeResult =
+      mergeMode === TripMergeMode.AS_TRIP
+        ? TripMergeService.buildAsTripInputs(
+            trip,
+            tripExpenses,
+            destination,
+            activePeriod.id,
+            periods,
+            settings,
+          )
+        : TripMergeService.buildIndividualInputs(
+            trip,
+            tripExpenses,
+            destination,
+            activePeriod.id,
+            periods,
+            settings,
+          )
+
+    return {
+      ...mergeResult,
+      mergeMode,
+      destination,
+    }
+  }
+
+  const executeTripClose = async (options?: {
     merge: boolean
     mergeMode?: TripMergeMode
     destination?: MergeDestination
@@ -456,64 +523,123 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
     const repo = getTripRepository()
     const userId = settings.userId
 
+    if (options?.merge && options.mergeMode && tripExpenses.length > 0) {
+      const built = buildMergeInputs(trip, options)
+      if (!built) throw new Error('No se pudo preparar la fusión')
+
+      const { inputs: mergeInputs, mergeMode } = built
+
+      const createdIds: string[] = []
+      const createdExpenses: Expense[] = []
+      for (const input of mergeInputs) {
+        const created = await createMonthlyExpense(input)
+        createdIds.push(created.id)
+        createdExpenses.push(created)
+      }
+
+      await repo.setMergeData(userId, trip.id, mergeMode, createdIds)
+      await refreshMonthlyExpenses()
+
+      const expensesForReconcile = [...monthlyExpenses, ...createdExpenses]
+      const reconcilePeriodIds =
+        savingsImpactPreview?.reconcilePeriodIds ??
+        SavingsReconciliationService.previewTripMergeImpact(
+          mergeInputs,
+          periods,
+          settings,
+          monthlyIncomes,
+          monthlyExpenses,
+        )?.reconcilePeriodIds ??
+        []
+
+      if (reconcilePeriodIds.length > 0) {
+        await reconcilePeriodsAfterMerge(
+          reconcilePeriodIds,
+          periods,
+          monthlyIncomes,
+          expensesForReconcile,
+        )
+        await refreshPeriods()
+      }
+
+      const tripLabel = tripAsCategoryLabel(trip.name)
+      const cleanedCustomCategories = settings.customCategories.filter(
+        (category) => category.trim().toLowerCase() !== tripLabel.toLowerCase(),
+      )
+      if (cleanedCustomCategories.length !== settings.customCategories.length) {
+        await updateSettings({ customCategories: cleanedCustomCategories })
+      }
+
+      await onTripMerged?.({ tripName: trip.name, createdExpenseIds: createdIds })
+    }
+
+    const wasLastActiveTrip = activeTrips.length === 1 && activeTrips[0]?.id === trip.id
+
+    await closeTrip(trip.id)
+    setCloseTripOpen(false)
+    toast.success('Viaje cerrado')
+
+    if (wasLastActiveTrip) {
+      await onAllTripsClosed?.()
+    }
+  }
+
+  const handleTripClosed = async (options?: {
+    merge: boolean
+    mergeMode?: TripMergeMode
+    destination?: MergeDestination
+  }) => {
+    if (!selectedTrip || !settings) return
+
     try {
-      if (options?.merge && options.mergeMode && tripExpenses.length > 0) {
-        const activePeriod = periods.find((p) => p.status === 'ACTIVE')
-        if (!activePeriod) throw new Error('No hay período activo')
-
-        const destination = options.destination ?? 'by_date'
-        const mergeMode =
-          options.mergeMode === TripMergeMode.INDIVIDUAL && !TRIP_INDIVIDUAL_MERGE_ENABLED
-            ? TripMergeMode.AS_TRIP
-            : options.mergeMode
-        const mergeResult =
-          mergeMode === TripMergeMode.AS_TRIP
-            ? TripMergeService.buildAsTripInputs(
-                trip,
-                tripExpenses,
-                destination,
-                activePeriod.id,
-                periods,
-                settings,
-              )
-            : TripMergeService.buildIndividualInputs(
-                trip,
-                tripExpenses,
-                destination,
-                activePeriod.id,
-                periods,
-                settings,
-              )
-        const { inputs: mergeInputs, newCategories } = mergeResult
-
-        if (newCategories.length > 0) {
-          await updateSettings({
-            customCategories: [...(settings.customCategories ?? []), ...newCategories],
-          })
+      const destination = options?.destination ?? 'by_date'
+      if (
+        options?.merge &&
+        destination === 'by_date' &&
+        tripExpenses.length > 0
+      ) {
+        const built = buildMergeInputs(selectedTrip, {
+          merge: true,
+          mergeMode: options.mergeMode,
+          destination,
+        })
+        if (built) {
+          const preview = previewTripMergeImpact(
+            built.inputs,
+            periods,
+            monthlyIncomes,
+            monthlyExpenses,
+          )
+          if (preview && preview.months.length > 0) {
+            setPendingCloseOptions({
+              merge: true,
+              mergeMode: built.mergeMode,
+              destination,
+            })
+            setSavingsImpactPreview(preview)
+            setCloseTripOpen(false)
+            return
+          }
         }
-
-        const createdIds: string[] = []
-        for (const input of mergeInputs) {
-          const created = await createMonthlyExpense(input)
-          createdIds.push(created.id)
-        }
-
-        await repo.setMergeData(userId, trip.id, mergeMode, createdIds)
-        await refreshMonthlyExpenses()
-        await onTripMerged?.({ tripName: trip.name, createdExpenseIds: createdIds })
       }
 
-      const wasLastActiveTrip = activeTrips.length === 1 && activeTrips[0]?.id === trip.id
-
-      await closeTrip(trip.id)
-      setCloseTripOpen(false)
-      toast.success('Viaje cerrado')
-
-      if (wasLastActiveTrip) {
-        await onAllTripsClosed?.()
-      }
+      await executeTripClose(options)
     } catch (error) {
       toast.error(getErrorMessage(error, 'Error al cerrar viaje'))
+    }
+  }
+
+  const handleConfirmSavingsImpact = async () => {
+    if (!pendingCloseOptions) return
+    setSavingsImpactBusy(true)
+    try {
+      await executeTripClose(pendingCloseOptions)
+      setSavingsImpactPreview(null)
+      setPendingCloseOptions(null)
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Error al cerrar viaje'))
+    } finally {
+      setSavingsImpactBusy(false)
     }
   }
 
@@ -748,6 +874,20 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
             onConfirmClose={handleTripClosed}
           />
         </Suspense>
+      )}
+
+      {savingsImpactPreview && (
+        <TripSavingsImpactModal
+          open
+          preview={savingsImpactPreview}
+          accountingCurrency={accountingCurrency}
+          busy={savingsImpactBusy}
+          onConfirm={() => void handleConfirmSavingsImpact()}
+          onCancel={() => {
+            setSavingsImpactPreview(null)
+            setPendingCloseOptions(null)
+          }}
+        />
       )}
 
       <UndoBar

@@ -1,9 +1,11 @@
 import { getSupabaseClient } from '@/lib/supabaseClient'
+import { isMissingColumnError } from '@/lib/supabaseSchemaCompat'
 import { PeriodService } from '@/services/PeriodService'
 import { PeriodStatus } from '@/types/enums'
 import type { Period } from '@/types/models'
 import { getYearMonthKey, nextYearMonth } from '@/utils/date'
 import type { PeriodRepository } from '../interfaces'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 interface PeriodRow {
   id: string
@@ -14,6 +16,9 @@ interface PeriodRow {
   started_at: string
   closed_at: string | null
   monthly_limit_snapshot: number | null
+  savings_applied_at?: string | null
+  savings_applied_amount?: number | null
+  savings_applied_location?: string | null
 }
 
 function mapRow(row: PeriodRow): Period {
@@ -27,6 +32,12 @@ function mapRow(row: PeriodRow): Period {
     closedAt: row.closed_at,
     monthlyLimitSnapshot:
       row.monthly_limit_snapshot === null ? null : Number(row.monthly_limit_snapshot),
+    savingsAppliedAt: row.savings_applied_at ?? null,
+    savingsAppliedAmount:
+      row.savings_applied_amount === null || row.savings_applied_amount === undefined
+        ? null
+        : Number(row.savings_applied_amount),
+    savingsAppliedLocation: row.savings_applied_location ?? null,
   }
 }
 
@@ -40,7 +51,136 @@ function toRow(period: Period): PeriodRow {
     started_at: period.startedAt,
     closed_at: period.closedAt,
     monthly_limit_snapshot: period.monthlyLimitSnapshot,
+    savings_applied_at: period.savingsAppliedAt,
+    savings_applied_amount: period.savingsAppliedAmount,
+    savings_applied_location: period.savingsAppliedLocation,
   }
+}
+
+function cleanPeriodRow(row: PeriodRow): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(row).filter(([, value]) => value !== undefined))
+}
+
+function periodRowVariants(period: Period): PeriodRow[] {
+  const fullRow = toRow(period)
+  return [
+    fullRow,
+    { ...fullRow, savings_applied_location: undefined, savings_applied_amount: undefined },
+    {
+      ...fullRow,
+      savings_applied_location: undefined,
+      savings_applied_amount: undefined,
+      savings_applied_at: undefined,
+    },
+  ]
+}
+
+function isMissingSavingsPeriodColumnError(error: unknown): boolean {
+  return (
+    isMissingColumnError(error, 'savings_applied_at') ||
+    isMissingColumnError(error, 'savings_applied_amount') ||
+    isMissingColumnError(error, 'savings_applied_location')
+  )
+}
+
+async function updatePeriodWithFallback(
+  supabase: SupabaseClient,
+  userId: string,
+  periodId: string,
+  period: Period,
+  options: { returnRow?: boolean } = {},
+): Promise<Period | void> {
+  const { returnRow = false } = options
+  let lastError: unknown = null
+
+  for (const row of periodRowVariants({ ...period, userId })) {
+    const query = supabase
+      .from('periods')
+      .update(cleanPeriodRow(row))
+      .eq('id', periodId)
+      .eq('user_id', userId)
+
+    const result = returnRow ? await query.select('*').single() : await query
+
+    if (!result.error) {
+      return returnRow ? mapRow(result.data as PeriodRow) : undefined
+    }
+
+    if (isMissingSavingsPeriodColumnError(result.error)) {
+      lastError = result.error
+      continue
+    }
+
+    throw result.error
+  }
+
+  throw lastError ?? new Error('No se pudo actualizar el período')
+}
+
+async function insertPeriodWithFallback(
+  supabase: SupabaseClient,
+  period: Period,
+): Promise<Period> {
+  let lastError: unknown = null
+
+  for (const row of periodRowVariants(period)) {
+    const result = await supabase
+      .from('periods')
+      .insert(cleanPeriodRow(row))
+      .select('*')
+      .single()
+
+    if (!result.error) return mapRow(result.data as PeriodRow)
+
+    if (isMissingSavingsPeriodColumnError(result.error)) {
+      lastError = result.error
+      continue
+    }
+
+    throw result.error
+  }
+
+  throw lastError ?? new Error('No se pudo crear el período')
+}
+
+async function insertManyPeriodsWithFallback(
+  supabase: SupabaseClient,
+  periods: Period[],
+): Promise<void> {
+  const rows = periods.map((period) => toRow(period))
+  const fallbackRowsList: PeriodRow[][] = [
+    rows,
+    rows.map((row) => ({
+      ...row,
+      savings_applied_location: undefined,
+      savings_applied_amount: undefined,
+    })),
+    rows.map((row) => ({
+      ...row,
+      savings_applied_location: undefined,
+      savings_applied_amount: undefined,
+      savings_applied_at: undefined,
+    })),
+  ]
+
+  let lastError: unknown = null
+
+  for (const variant of fallbackRowsList) {
+    const result = await supabase
+      .from('periods')
+      .insert(variant.map((row) => cleanPeriodRow(row)))
+
+    if (!result.error) return
+
+    if (isMissingSavingsPeriodColumnError(result.error)) {
+      lastError = result.error
+      continue
+    }
+
+    throw result.error
+  }
+
+  throw lastError ?? new Error('No se pudieron importar los períodos')
 }
 
 export class SupabasePeriodRepository implements PeriodRepository {
@@ -82,14 +222,7 @@ export class SupabasePeriodRepository implements PeriodRepository {
 
     const created = PeriodService.currentCalendarPeriod(userId)
     created.monthlyLimitSnapshot = monthlyLimit
-    const supabase = getSupabaseClient()
-    const { data, error } = await supabase
-      .from('periods')
-      .insert(toRow(created))
-      .select('*')
-      .single()
-    if (error) throw error
-    return mapRow(data as PeriodRow)
+    return insertPeriodWithFallback(getSupabaseClient(), created)
   }
 
   /**
@@ -106,12 +239,7 @@ export class SupabasePeriodRepository implements PeriodRepository {
     const supabase = getSupabaseClient()
     const closed = PeriodService.closePeriod(active)
 
-    const { error: closeError } = await supabase
-      .from('periods')
-      .update(toRow(closed))
-      .eq('id', closed.id)
-      .eq('user_id', userId)
-    if (closeError) throw closeError
+    await updatePeriodWithFallback(supabase, userId, closed.id, closed)
 
     const { data: existingRows, error: existingError } = await supabase
       .from('periods')
@@ -130,27 +258,19 @@ export class SupabasePeriodRepository implements PeriodRepository {
         closedAt: null,
         monthlyLimitSnapshot: monthlyLimit,
       }
-      const { data, error } = await supabase
-        .from('periods')
-        .update(toRow(reactivated))
-        .eq('id', reactivated.id)
-        .eq('user_id', userId)
-        .select('*')
-        .single()
-      if (error) throw error
-      return mapRow(data as PeriodRow)
+      return (await updatePeriodWithFallback(
+        supabase,
+        userId,
+        reactivated.id,
+        reactivated,
+        { returnRow: true },
+      )) as Period
     }
 
     const next = PeriodService.buildPeriod(userId, targetYearMonth, {
       monthlyLimitSnapshot: monthlyLimit,
     })
-    const { data, error } = await supabase
-      .from('periods')
-      .insert(toRow(next))
-      .select('*')
-      .single()
-    if (error) throw error
-    return mapRow(data as PeriodRow)
+    return insertPeriodWithFallback(supabase, next)
   }
 
   async closeAndOpenNext(userId: string, monthlyLimit: number): Promise<Period> {
@@ -188,14 +308,7 @@ export class SupabasePeriodRepository implements PeriodRepository {
       return planned
     }
 
-    const supabase = getSupabaseClient()
-    const { data, error } = await supabase
-      .from('periods')
-      .insert(toRow(planned))
-      .select('*')
-      .single()
-    if (error) throw error
-    return mapRow(data as PeriodRow)
+    return insertPeriodWithFallback(getSupabaseClient(), planned)
   }
 
   async replaceAll(userId: string, periods: Period[]): Promise<void> {
@@ -208,9 +321,19 @@ export class SupabasePeriodRepository implements PeriodRepository {
 
     if (periods.length === 0) return
 
-    const { error } = await supabase
-      .from('periods')
-      .insert(periods.map((p) => toRow({ ...p, userId })))
-    if (error) throw error
+    await insertManyPeriodsWithFallback(
+      supabase,
+      periods.map((period) => ({ ...period, userId })),
+    )
+  }
+
+  async update(userId: string, period: Period): Promise<Period> {
+    return (await updatePeriodWithFallback(
+      getSupabaseClient(),
+      userId,
+      period.id,
+      { ...period, userId },
+      { returnRow: true },
+    )) as Period
   }
 }

@@ -1,4 +1,13 @@
 export function parseAmountInput(raw: string): number | null {
+  return parseFormattedAmount(raw, false)
+}
+
+/** Igual que parseAmountInput pero permite saldo cero (cajitas de ahorro). */
+export function parseBalanceAmountInput(raw: string): number | null {
+  return parseFormattedAmount(raw, true)
+}
+
+function parseFormattedAmount(raw: string, allowZero: boolean): number | null {
   const trimmed = raw.trim()
   if (trimmed === '' || trimmed === ',' || trimmed === '.') return null
 
@@ -7,7 +16,8 @@ export function parseAmountInput(raw: string): number | null {
   if (normalized === '' || normalized === '.' || normalized === '-') return null
 
   const value = Number(normalized)
-  if (!Number.isFinite(value) || value <= 0) return null
+  if (!Number.isFinite(value)) return null
+  if (allowZero ? value < 0 : value <= 0) return null
   return Math.round(value * 100) / 100
 }
 
