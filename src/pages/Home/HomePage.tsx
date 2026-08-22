@@ -85,6 +85,10 @@ import { tripAsCategoryLabel } from '@/services/TripCategoryMapper'
 import { VisibilityProjector } from '@/services/VisibilityProjector'
 import { SavingsService } from '@/services/SavingsService'
 import { resolveAccountingCurrency } from '@/services/AccountingCurrency'
+import {
+  isSavingsCatchUpSkipped,
+  markSavingsCatchUpSkipped,
+} from '@/utils/savingsCatchUpSkip'
 import { ClosePeriodSavingsModal } from '@/components/savings/ClosePeriodSavingsModal'
 import { useSavings } from '@/hooks/useSavings'
 import { categoryRowScrollKey } from '@/utils/categoryScrollKey'
@@ -333,13 +337,15 @@ export function HomePage() {
   )
 
   useEffect(() => {
-    if (!settings || isLoadingData || closeSavingsFlow) return
+    if (!settings || !user || isLoadingData || closeSavingsFlow) return
+    if (settings.savingsLocations.length === 0) return
 
     const pending = [...periods]
       .filter(
         (period) =>
           period.status === PeriodStatus.CLOSED &&
-          !SavingsService.isPeriodSavingsComplete(period),
+          !SavingsService.isPeriodSavingsComplete(period) &&
+          !isSavingsCatchUpSkipped(user.id, period.id),
       )
       .sort((a, b) => b.yearMonth.localeCompare(a.yearMonth))[0]
 
@@ -362,7 +368,15 @@ export function HomePage() {
     isLoadingData,
     periods,
     settings,
+    user,
   ])
+
+  const handleCloseSavingsCancel = useCallback(() => {
+    if (closeSavingsFlow?.mode === 'catchUp' && user) {
+      markSavingsCatchUpSkipped(user.id, closeSavingsFlow.period.id)
+    }
+    setCloseSavingsFlow(null)
+  }, [closeSavingsFlow, user])
 
   const handleRegisterRow = useCallback(
     (row: CategoryRowModel) => {
@@ -1278,13 +1292,14 @@ export function HomePage() {
       {closeSavingsFlow && settings && (
         <ClosePeriodSavingsModal
           open
+          mode={closeSavingsFlow.mode}
           amount={closeSavingsFlow.amount}
           periodLabel={closeSavingsFlow.period.label}
           locations={settings.savingsLocations}
           accountingCurrency={resolveAccountingCurrency(settings)}
           busy={closeSavingsBusy || isClosing}
           onConfirm={(locationName) => void handleCloseSavingsConfirm(locationName)}
-          onCancel={() => setCloseSavingsFlow(null)}
+          onCancel={handleCloseSavingsCancel}
         />
       )}
 
