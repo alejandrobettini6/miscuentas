@@ -101,3 +101,40 @@ export function accountingAmount(
 ): number {
   return accountingAmountFromRecord(expense, accountingCurrency, rates)
 }
+
+/** Cotización ARS/USD de la cuenta activa. */
+export function accountExchangeRate(
+  accountType: AccountType,
+  rates: ExchangeRates,
+): number {
+  return accountType === AccountType.WHITE ? rates.usdWhite : rates.usdCash
+}
+
+/** Si el modal debe mostrar tipo de cambio y previsualización. */
+export function needsConversionPreview(
+  enabledCurrencies: Currency[],
+  inputCurrency: Currency,
+  accountingCurrency: Currency | undefined,
+): boolean {
+  return (
+    enabledCurrencies.length > 1 &&
+    accountingCurrency != null &&
+    inputCurrency !== accountingCurrency
+  )
+}
+
+/** Importe contable previsto al registrar (misma lógica que ExpenseService). */
+export function previewAccountingAmount(
+  amount: number,
+  inputCurrency: Currency,
+  accountingCurrency: Currency,
+  accountType: AccountType,
+  rates: ExchangeRates,
+): number {
+  return CurrencyConverter.convertToAccounting(
+    amount,
+    inputCurrency,
+    accountingCurrency,
+    accountExchangeRate(accountType, rates),
+  )
+}

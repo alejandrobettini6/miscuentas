@@ -3,7 +3,10 @@ import { AccountType, Currency } from '@/types/enums'
 import { PERIOD_ID, testExpense, testSettings } from '@/test/fixtures'
 import {
   accountingAmount,
+  accountExchangeRate,
+  needsConversionPreview,
   needsExchangeRates,
+  previewAccountingAmount,
   resolveAccountingCurrency,
   shouldShowUsdCashRate,
   shouldShowUsdWhiteRate,
@@ -87,5 +90,110 @@ describe('AccountingCurrency', () => {
     const onlyUsd = testSettings({ enabledCurrencies: [Currency.USD] })
     expect(needsExchangeRates(onlyUsd)).toBe(false)
     expect(shouldShowUsdWhiteRate(onlyUsd)).toBe(false)
+  })
+
+  describe('needsConversionPreview', () => {
+    it('oculta preview con una sola moneda habilitada', () => {
+      expect(
+        needsConversionPreview([Currency.ARS], Currency.ARS, Currency.ARS),
+      ).toBe(false)
+      expect(
+        needsConversionPreview([Currency.USD], Currency.USD, Currency.USD),
+      ).toBe(false)
+    })
+
+    it('oculta preview cuando la moneda ingresada coincide con la de expresión', () => {
+      expect(
+        needsConversionPreview(
+          [Currency.ARS, Currency.USD],
+          Currency.USD,
+          Currency.USD,
+        ),
+      ).toBe(false)
+      expect(
+        needsConversionPreview(
+          [Currency.ARS, Currency.USD],
+          Currency.ARS,
+          Currency.ARS,
+        ),
+      ).toBe(false)
+    })
+
+    it('muestra preview cuando hay conversión pendiente', () => {
+      expect(
+        needsConversionPreview(
+          [Currency.ARS, Currency.USD],
+          Currency.ARS,
+          Currency.USD,
+        ),
+      ).toBe(true)
+      expect(
+        needsConversionPreview(
+          [Currency.ARS, Currency.USD],
+          Currency.USD,
+          Currency.ARS,
+        ),
+      ).toBe(true)
+    })
+  })
+
+  describe('previewAccountingAmount', () => {
+    const rates = { usdWhite: 1000, usdCash: 1200 }
+
+    it('convierte ARS a USD con cotización Blanco', () => {
+      expect(
+        previewAccountingAmount(
+          5000,
+          Currency.ARS,
+          Currency.USD,
+          AccountType.WHITE,
+          rates,
+        ),
+      ).toBe(5)
+    })
+
+    it('convierte ARS a USD con cotización Negro', () => {
+      expect(
+        previewAccountingAmount(
+          6000,
+          Currency.ARS,
+          Currency.USD,
+          AccountType.CASH,
+          rates,
+        ),
+      ).toBe(5)
+    })
+
+    it('convierte USD a ARS con cotización Blanco', () => {
+      expect(
+        previewAccountingAmount(
+          15,
+          Currency.USD,
+          Currency.ARS,
+          AccountType.WHITE,
+          rates,
+        ),
+      ).toBe(15000)
+    })
+
+    it('convierte USD a ARS con cotización Negro', () => {
+      expect(
+        previewAccountingAmount(
+          10,
+          Currency.USD,
+          Currency.ARS,
+          AccountType.CASH,
+          rates,
+        ),
+      ).toBe(12000)
+    })
+  })
+
+  describe('accountExchangeRate', () => {
+    it('resuelve cotización según cuenta', () => {
+      const rates = { usdWhite: 1000, usdCash: 1200 }
+      expect(accountExchangeRate(AccountType.WHITE, rates)).toBe(1000)
+      expect(accountExchangeRate(AccountType.CASH, rates)).toBe(1200)
+    })
   })
 })

@@ -774,6 +774,9 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
         enabledCurrencies={selectedTrip?.enabledCurrencies ?? [Currency.USD]}
         showCategoryName={showCategoryName}
         showDetail={showDetail}
+        accountingCurrency={accountingCurrency}
+        exchangeRates={rates}
+        activeAccountType={accountType}
         onSubmit={(amount, currency, categoryName) =>
           void handleAmountSubmit(amount, currency, categoryName)
         }

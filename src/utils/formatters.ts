@@ -2,7 +2,8 @@
  * Formato AR-style: miles con punto, decimales con coma solo si existen.
  * Ej: 1250 -> "1.250", 1250.5 -> "1.250,50"
  */
-import { Currency } from '@/types/enums'
+import { ACCOUNT_LABELS } from '@/constants/categories'
+import { AccountType, Currency } from '@/types/enums'
 
 export function formatUsd(amount: number): string {
   return formatMoney(amount)
@@ -56,4 +57,9 @@ export function formatPercent(value: number): string {
  */
 export function formatCsvAmount(amount: number): string {
   return amount.toFixed(2)
+}
+
+/** Cotización ARS/USD por tipo de cuenta: "USD Blanco: $ 1.250". */
+export function formatExchangeRateLabel(rate: number, accountType: AccountType): string {
+  return `USD ${ACCOUNT_LABELS[accountType]}: $ ${formatMoney(rate)}`
 }

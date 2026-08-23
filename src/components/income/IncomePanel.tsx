@@ -264,6 +264,9 @@ export function IncomePanel({
         initialDetail={editIncome?.description ?? ''}
         enabledCurrencies={enabledCurrencies}
         showIncomeDetail
+        accountingCurrency={accountingCurrency}
+        exchangeRates={rates}
+        activeAccountType={amountMode?.row.accountType ?? AccountType.WHITE}
         onSubmit={(amount, currency, detail) =>
           void handleAmountSubmit(amount, currency, detail)
         }
