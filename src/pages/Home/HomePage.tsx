@@ -1029,6 +1029,9 @@ export function HomePage() {
         enabledCurrencies={enabledCurrencies}
         showCategoryName={showCategoryName}
         showDetail={showDetail}
+        accountingCurrency={accountingCurrency}
+        exchangeRates={rates}
+        activeAccountType={accountType}
         onSubmit={(amount, currency, categoryName) =>
           void handleAmountSubmit(amount, currency, categoryName)
         }

@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { ACCOUNT_LABELS } from '@/constants/categories'
 import { useBackButtonClose } from '@/hooks/useBackButtonClose'
+import {
+  accountExchangeRate,
+  needsConversionPreview,
+  previewAccountingAmount,
+  type ExchangeRates,
+} from '@/services/AccountingCurrency'
 import { AccountType, Currency } from '@/types/enums'
+import { formatExchangeRateLabel, formatMoneyLabel } from '@/utils/formatters'
 import { formatAmountFromNumber, parseAmountInput } from '@/validators/amount'
 import { AmountInput } from './AmountInput'
 import { Button } from './Button'
@@ -20,6 +27,10 @@ interface AmountSheetProps {
   initialAccountType?: AccountType
   showIncomeDetail?: boolean
   initialDetail?: string
+  accountingCurrency?: Currency
+  exchangeRates?: ExchangeRates
+  /** Cuenta vigente cuando no hay selector interno (tab Blanco/Negro o fila de ingreso). */
+  activeAccountType?: AccountType
   onSubmit: (
     amount: string,
     currency: Currency,
@@ -42,6 +53,9 @@ export function AmountSheet({
   initialAccountType = AccountType.WHITE,
   showIncomeDetail = false,
   initialDetail = '',
+  accountingCurrency,
+  exchangeRates,
+  activeAccountType,
   onSubmit,
   onCancel,
 }: AmountSheetProps) {
@@ -151,6 +165,30 @@ export function AmountSheet({
 
   const showCurrencyToggle = enabledCurrencies.length > 1
   const showAccountSelector = showAccountToggle && enabledAccounts.length > 1
+  const effectiveAccount = showAccountToggle
+    ? accountType
+    : (activeAccountType ?? accountType)
+  const showConversionPreview = needsConversionPreview(
+    enabledCurrencies,
+    currency,
+    accountingCurrency,
+  )
+  const accountRate = exchangeRates
+    ? accountExchangeRate(effectiveAccount, exchangeRates)
+    : 1
+  const parsedAmount = parseAmountInput(amount)
+  const previewAmount =
+    showConversionPreview &&
+    accountingCurrency != null &&
+    parsedAmount != null
+      ? previewAccountingAmount(
+          parsedAmount,
+          currency,
+          accountingCurrency,
+          effectiveAccount,
+          exchangeRates ?? { usdWhite: 1, usdCash: 1 },
+        )
+      : null
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-[var(--overlay)] p-4">
@@ -258,6 +296,22 @@ export function AmountSheet({
             </p>
           )}
         </label>
+
+        {showConversionPreview && accountingCurrency != null && (
+          <div className="mb-4 space-y-1 text-sm text-[var(--muted)]">
+            <p className="tabular-nums">
+              {formatExchangeRateLabel(accountRate, effectiveAccount)}
+            </p>
+            <p aria-live="polite">
+              Se registrará:{' '}
+              <span className="font-medium tabular-nums text-[var(--text)]">
+                {previewAmount != null
+                  ? formatMoneyLabel(previewAmount, accountingCurrency)
+                  : '—'}
+              </span>
+            </p>
+          </div>
+        )}
 
         {showIncomeDetail && (
           <label className="mb-4 block" htmlFor="income-detail-input">

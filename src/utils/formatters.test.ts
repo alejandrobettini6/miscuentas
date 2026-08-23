@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { Currency } from '@/types/enums'
+import { AccountType, Currency } from '@/types/enums'
 import {
   formatCsvAmount,
+  formatExchangeRateLabel,
   formatLastMovementDelta,
   formatMoneyLabel,
   formatUsd,
@@ -33,5 +34,16 @@ describe('formatCsvAmount', () => {
     expect(formatCsvAmount(1250.5)).toBe('1250.50')
     expect(formatCsvAmount(25)).toBe('25.00')
     expect(formatCsvAmount(-10.2)).toBe('-10.20')
+  })
+})
+
+describe('formatExchangeRateLabel', () => {
+  it('formatea cotización por tipo de cuenta', () => {
+    expect(formatExchangeRateLabel(1250, AccountType.WHITE)).toBe(
+      'USD Blanco: $ 1.250',
+    )
+    expect(formatExchangeRateLabel(1400, AccountType.CASH)).toBe(
+      'USD Negro: $ 1.400',
+    )
   })
 })
