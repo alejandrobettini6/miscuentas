@@ -4,10 +4,13 @@ import { PERIOD_ID, testExpense, testSettings } from '@/test/fixtures'
 import {
   accountingAmount,
   accountExchangeRate,
+  convertMonthlyLimit,
   needsConversionPreview,
   needsExchangeRates,
+  needsMonthlyLimitConversion,
   previewAccountingAmount,
   resolveAccountingCurrency,
+  resolveAccountingCurrencyAfterEnabledCurrenciesChange,
   shouldShowUsdCashRate,
   shouldShowUsdWhiteRate,
 } from './AccountingCurrency'
@@ -194,6 +197,93 @@ describe('AccountingCurrency', () => {
       const rates = { usdWhite: 1000, usdCash: 1200 }
       expect(accountExchangeRate(AccountType.WHITE, rates)).toBe(1000)
       expect(accountExchangeRate(AccountType.CASH, rates)).toBe(1200)
+    })
+  })
+
+  describe('convertMonthlyLimit', () => {
+    it('convierte USD a ARS con cotización dada', () => {
+      expect(
+        convertMonthlyLimit(1500, Currency.USD, Currency.ARS, 1000),
+      ).toBe(1_500_000)
+    })
+
+    it('convierte ARS a USD con cotización dada', () => {
+      expect(
+        convertMonthlyLimit(1_500_000, Currency.ARS, Currency.USD, 1000),
+      ).toBe(1500)
+    })
+
+    it('no altera el límite si la moneda no cambia', () => {
+      expect(
+        convertMonthlyLimit(1500, Currency.USD, Currency.USD, 1000),
+      ).toBe(1500)
+    })
+  })
+
+  describe('resolveAccountingCurrencyAfterEnabledCurrenciesChange', () => {
+    it('pasa a ARS al deshabilitar USD con límite en dólares', () => {
+      const settings = testSettings({
+        enabledCurrencies: [Currency.ARS, Currency.USD],
+        accountingCurrency: Currency.USD,
+      })
+      expect(
+        resolveAccountingCurrencyAfterEnabledCurrenciesChange(settings, [
+          Currency.ARS,
+        ]),
+      ).toBe(Currency.ARS)
+    })
+
+    it('pasa a USD al deshabilitar ARS con límite en pesos', () => {
+      const settings = testSettings({
+        enabledCurrencies: [Currency.ARS, Currency.USD],
+        accountingCurrency: Currency.ARS,
+      })
+      expect(
+        resolveAccountingCurrencyAfterEnabledCurrenciesChange(settings, [
+          Currency.USD,
+        ]),
+      ).toBe(Currency.USD)
+    })
+
+    it('mantiene USD si se quita ARS y la contable ya era USD', () => {
+      const settings = testSettings({
+        enabledCurrencies: [Currency.ARS, Currency.USD],
+        accountingCurrency: Currency.USD,
+      })
+      expect(
+        resolveAccountingCurrencyAfterEnabledCurrenciesChange(settings, [
+          Currency.USD,
+        ]),
+      ).toBe(Currency.USD)
+    })
+  })
+
+  describe('needsMonthlyLimitConversion', () => {
+    it('requiere conversión al cambiar moneda contable con límite positivo', () => {
+      const settings = testSettings({
+        enabledCurrencies: [Currency.ARS, Currency.USD],
+        accountingCurrency: Currency.USD,
+        monthlyLimit: 1000,
+      })
+      expect(needsMonthlyLimitConversion(settings, Currency.ARS)).toBe(true)
+    })
+
+    it('no requiere conversión si la moneda contable no cambia', () => {
+      const settings = testSettings({
+        enabledCurrencies: [Currency.ARS, Currency.USD],
+        accountingCurrency: Currency.USD,
+        monthlyLimit: 1000,
+      })
+      expect(needsMonthlyLimitConversion(settings, Currency.USD)).toBe(false)
+    })
+
+    it('no requiere conversión con límite cero', () => {
+      const settings = testSettings({
+        enabledCurrencies: [Currency.ARS, Currency.USD],
+        accountingCurrency: Currency.USD,
+        monthlyLimit: 0,
+      })
+      expect(needsMonthlyLimitConversion(settings, Currency.ARS)).toBe(false)
     })
   })
 })
