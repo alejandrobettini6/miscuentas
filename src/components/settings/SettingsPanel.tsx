@@ -10,13 +10,17 @@ import { useSettingsContext } from '@/contexts/SettingsContext'
 import { useBackButtonClose } from '@/hooks/useBackButtonClose'
 import {
   needsExchangeRates,
+  needsMonthlyLimitConversion,
   resolveAccountingCurrency,
+  resolveAccountingCurrencyAfterEnabledCurrenciesChange,
   shouldShowUsdCashRate,
   shouldShowUsdWhiteRate,
 } from '@/services/AccountingCurrency'
 import { AccountType, Category, Currency, MonthMode, SummaryDisplayMode } from '@/types/enums'
+import type { Settings } from '@/types/models'
 import { Button } from '@/components/ui/Button'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { LimitConversionModal } from '@/components/settings/LimitConversionModal'
 import toast from 'react-hot-toast'
 import { getErrorMessage } from '@/utils/errors'
 
@@ -24,6 +28,23 @@ interface SettingsPanelProps {
   open: boolean
   onClose: () => void
   onOpenOnboarding: () => void
+}
+
+type LimitConversionPending =
+  | { kind: 'accountingCurrency'; targetCurrency: Currency }
+  | { kind: 'enabledCurrencies'; nextEnabledCurrencies: Currency[] }
+
+function getTargetAccountingCurrency(
+  settings: Settings,
+  pending: LimitConversionPending,
+): Currency {
+  if (pending.kind === 'accountingCurrency') {
+    return pending.targetCurrency
+  }
+  return resolveAccountingCurrencyAfterEnabledCurrenciesChange(
+    settings,
+    pending.nextEnabledCurrencies,
+  )
 }
 
 export function SettingsPanel({
@@ -88,6 +109,19 @@ function SettingsPanelContent({
   onClose: () => void
   onOpenOnboarding: () => void
 }) {
+  const [pendingLimitConversion, setPendingLimitConversion] =
+    useState<LimitConversionPending | null>(null)
+
+  const currentAccountingCurrency = resolveAccountingCurrency(settings)
+  const targetAccountingCurrency =
+    pendingLimitConversion != null
+      ? getTargetAccountingCurrency(settings, pendingLimitConversion)
+      : null
+  const showLimitConversion =
+    pendingLimitConversion != null &&
+    targetAccountingCurrency != null &&
+    needsMonthlyLimitConversion(settings, targetAccountingCurrency)
+
   const toggleAccount = async (account: AccountType) => {
     const has = settings.enabledAccounts.includes(account)
     const next = has
@@ -117,6 +151,21 @@ function SettingsPanelContent({
       toast.error('Debés dejar al menos una moneda')
       return
     }
+
+    if (has) {
+      const targetCurrency = resolveAccountingCurrencyAfterEnabledCurrenciesChange(
+        settings,
+        next,
+      )
+      if (needsMonthlyLimitConversion(settings, targetCurrency)) {
+        setPendingLimitConversion({
+          kind: 'enabledCurrencies',
+          nextEnabledCurrencies: next,
+        })
+        return
+      }
+    }
+
     setBusy(true)
     try {
       await updateSettings({ enabledCurrencies: next })
@@ -157,10 +206,46 @@ function SettingsPanelContent({
   }
 
   const setAccountingCurrency = async (accountingCurrency: Currency) => {
+    if (accountingCurrency === currentAccountingCurrency) return
+
+    if (needsMonthlyLimitConversion(settings, accountingCurrency)) {
+      setPendingLimitConversion({
+        kind: 'accountingCurrency',
+        targetCurrency: accountingCurrency,
+      })
+      return
+    }
+
     setBusy(true)
     try {
       await updateSettings({ accountingCurrency })
       toast.success('Moneda de expresión actualizada')
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'No se pudo guardar'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const confirmLimitConversion = async (convertedLimit: number) => {
+    if (pendingLimitConversion == null) return
+
+    setBusy(true)
+    try {
+      if (pendingLimitConversion.kind === 'accountingCurrency') {
+        await updateSettings({
+          accountingCurrency: pendingLimitConversion.targetCurrency,
+          monthlyLimit: convertedLimit,
+        })
+        toast.success('Moneda de expresión y límite actualizados')
+      } else {
+        await updateSettings({
+          enabledCurrencies: pendingLimitConversion.nextEnabledCurrencies,
+          monthlyLimit: convertedLimit,
+        })
+        toast.success('Monedas y límite actualizados')
+      }
+      setPendingLimitConversion(null)
     } catch (error) {
       toast.error(getErrorMessage(error, 'No se pudo guardar'))
     } finally {
@@ -181,6 +266,7 @@ function SettingsPanelContent({
   }
 
   return (
+    <>
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
           <section>
             <Tooltip text="Deshabilitar una moneda impide registrar nuevos movimientos en esa moneda. Los existentes siguen en el resumen, convertidos a la moneda contable. Con solo pesos, no hay conversión a dólares.">
@@ -227,7 +313,7 @@ function SettingsPanelContent({
                       name="accounting-currency"
                       disabled={busy}
                       checked={
-                        resolveAccountingCurrency(settings) === Currency.USD
+                        currentAccountingCurrency === Currency.USD
                       }
                       onChange={() => void setAccountingCurrency(Currency.USD)}
                     />
@@ -239,7 +325,7 @@ function SettingsPanelContent({
                       name="accounting-currency"
                       disabled={busy}
                       checked={
-                        resolveAccountingCurrency(settings) === Currency.ARS
+                        currentAccountingCurrency === Currency.ARS
                       }
                       onChange={() => void setAccountingCurrency(Currency.ARS)}
                     />
@@ -382,5 +468,20 @@ function SettingsPanelContent({
             </Button>
           </section>
         </div>
+
+      <LimitConversionModal
+        open={showLimitConversion}
+        currentLimit={settings.monthlyLimit}
+        fromCurrency={currentAccountingCurrency}
+        toCurrency={targetAccountingCurrency ?? currentAccountingCurrency}
+        usdWhite={settings.usdWhite}
+        usdCash={settings.usdCash}
+        showWhite={shouldShowUsdWhiteRate(settings)}
+        showCash={shouldShowUsdCashRate(settings)}
+        busy={busy}
+        onConfirm={(convertedLimit) => void confirmLimitConversion(convertedLimit)}
+        onCancel={() => setPendingLimitConversion(null)}
+      />
+    </>
   )
 }

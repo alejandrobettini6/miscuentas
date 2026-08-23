@@ -1,6 +1,7 @@
 import { AccountType, Currency } from '@/types/enums'
 import type { Expense, Settings } from '@/types/models'
 import { CurrencyConverter } from './CurrencyConverter'
+import { normalizeAccountingCurrency } from './SettingsDefaults'
 
 /** Cotizaciones vigentes por tipo de cuenta. */
 export interface ExchangeRates {
@@ -136,5 +137,42 @@ export function previewAccountingAmount(
     inputCurrency,
     accountingCurrency,
     accountExchangeRate(accountType, rates),
+  )
+}
+
+/** Moneda contable resultante al cambiar las monedas habilitadas. */
+export function resolveAccountingCurrencyAfterEnabledCurrenciesChange(
+  settings: Settings,
+  nextEnabledCurrencies: Currency[],
+): Currency {
+  return normalizeAccountingCurrency(
+    settings.accountingCurrency,
+    nextEnabledCurrencies,
+  )
+}
+
+/** Si hay que convertir el límite al cambiar la moneda contable. */
+export function needsMonthlyLimitConversion(
+  settings: Settings,
+  targetAccountingCurrency: Currency,
+): boolean {
+  return (
+    settings.monthlyLimit > 0 &&
+    resolveAccountingCurrency(settings) !== targetAccountingCurrency
+  )
+}
+
+/** Convierte el límite mensual al cambiar la moneda de expresión. */
+export function convertMonthlyLimit(
+  limit: number,
+  fromCurrency: Currency,
+  toCurrency: Currency,
+  exchangeRate: number,
+): number {
+  return CurrencyConverter.convertToAccounting(
+    limit,
+    fromCurrency,
+    toCurrency,
+    exchangeRate,
   )
 }
