@@ -8,7 +8,11 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useIncomes } from '@/hooks/useIncomes'
 import { usePeriods } from '@/hooks/usePeriods'
 import { useSavings } from '@/hooks/useSavings'
-import { resolveAccountingCurrency, type ExchangeRates } from '@/services/AccountingCurrency'
+import {
+  needsExchangeRates,
+  resolveAccountingCurrency,
+  type ExchangeRates,
+} from '@/services/AccountingCurrency'
 import { TripCategoryAggregator } from '@/services/TripCategoryAggregator'
 import { TripMergeService, type MergeDestination } from '@/services/TripMergeService'
 import { tripAsCategoryLabel } from '@/services/TripCategoryMapper'
@@ -244,6 +248,8 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
     rawAmount: string,
     currency: Currency,
     categoryNameOrDetail?: string,
+    _accountTypeFromSheet?: AccountType,
+    customExchangeRate?: number | null,
   ) => {
     if (!amountMode || !settings || !selectedTrip) {
       setAmountMode(null)
@@ -266,7 +272,11 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
       if (mode.type === 'edit') {
         await updateExpense({
           expenseId: mode.expense.id,
-          input: { originalAmount: amount, originalCurrency: currency },
+          input: {
+            originalAmount: amount,
+            originalCurrency: currency,
+            customExchangeRate: customExchangeRate ?? null,
+          },
           trip: selectedTrip,
         })
         toast.success('Movimiento actualizado')
@@ -293,6 +303,7 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
             description,
             originalAmount: amount,
             originalCurrency: currency,
+            customExchangeRate: customExchangeRate ?? null,
           },
           trip: selectedTrip,
         })
@@ -311,6 +322,7 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
             description: mode.row.description,
             originalAmount: amount,
             originalCurrency: currency,
+            customExchangeRate: customExchangeRate ?? null,
           },
           trip: selectedTrip,
         })
@@ -338,6 +350,7 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
           description: detail,
           originalAmount: amount,
           originalCurrency: currency,
+          customExchangeRate: customExchangeRate ?? null,
         },
         trip: selectedTrip,
       })
@@ -777,8 +790,14 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
         accountingCurrency={accountingCurrency}
         exchangeRates={rates}
         activeAccountType={accountType}
-        onSubmit={(amount, currency, categoryName) =>
-          void handleAmountSubmit(amount, currency, categoryName)
+        allowCustomExchangeRate={settings ? needsExchangeRates(settings) : false}
+        initialCustomExchangeRate={
+          amountMode?.type === 'edit' && amountMode.expense.customExchangeRate != null
+            ? String(amountMode.expense.customExchangeRate)
+            : ''
+        }
+        onSubmit={(amount, currency, categoryName, _account, customRate) =>
+          void handleAmountSubmit(amount, currency, categoryName, _account, customRate)
         }
         onCancel={() => setAmountMode(null)}
       />

@@ -84,7 +84,10 @@ import {
 import { tripAsCategoryLabel } from '@/services/TripCategoryMapper'
 import { VisibilityProjector } from '@/services/VisibilityProjector'
 import { SavingsService } from '@/services/SavingsService'
-import { resolveAccountingCurrency } from '@/services/AccountingCurrency'
+import {
+  needsExchangeRates,
+  resolveAccountingCurrency,
+} from '@/services/AccountingCurrency'
 import {
   isSavingsCatchUpSkipped,
   markSavingsCatchUpSkipped,
@@ -575,6 +578,8 @@ export function HomePage() {
     rawAmount: string,
     currency: Currency,
     categoryNameOrDetail?: string,
+    _accountTypeFromSheet?: AccountType,
+    customExchangeRate?: number | null,
   ) => {
     if (!amountMode || !settings || !selectedPeriod || isReadOnly) {
       setAmountMode(null)
@@ -602,7 +607,11 @@ export function HomePage() {
       if (mode.type === 'edit') {
         await updateExpense({
           expenseId: mode.expense.id,
-          input: { originalAmount: amount, originalCurrency: currency },
+          input: {
+            originalAmount: amount,
+            originalCurrency: currency,
+            customExchangeRate: customExchangeRate ?? null,
+          },
         })
         toast.success('Movimiento actualizado')
         clearUndo()
@@ -627,6 +636,7 @@ export function HomePage() {
           description,
           originalAmount: amount,
           originalCurrency: currency,
+          customExchangeRate: customExchangeRate ?? null,
         })
         toast.success('Movimiento registrado')
         setUndoExpenseId(expense.id)
@@ -642,6 +652,7 @@ export function HomePage() {
           description: mode.row.description,
           originalAmount: amount,
           originalCurrency: currency,
+          customExchangeRate: customExchangeRate ?? null,
         })
         toast.success('Movimiento registrado')
         setUndoExpenseId(expense.id)
@@ -666,6 +677,7 @@ export function HomePage() {
         description: detail,
         originalAmount: amount,
         originalCurrency: currency,
+        customExchangeRate: customExchangeRate ?? null,
       })
       toast.success('Movimiento registrado')
       setUndoExpenseId(expense.id)
@@ -1032,8 +1044,14 @@ export function HomePage() {
         accountingCurrency={accountingCurrency}
         exchangeRates={rates}
         activeAccountType={accountType}
-        onSubmit={(amount, currency, categoryName) =>
-          void handleAmountSubmit(amount, currency, categoryName)
+        allowCustomExchangeRate={settings ? needsExchangeRates(settings) : false}
+        initialCustomExchangeRate={
+          amountMode?.type === 'edit' && amountMode.expense.customExchangeRate != null
+            ? String(amountMode.expense.customExchangeRate)
+            : ''
+        }
+        onSubmit={(amount, currency, categoryName, _account, customRate) =>
+          void handleAmountSubmit(amount, currency, categoryName, _account, customRate)
         }
         onCancel={() => setAmountMode(null)}
       />

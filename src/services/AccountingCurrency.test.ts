@@ -76,6 +76,34 @@ describe('AccountingCurrency', () => {
     expect(accountingAmount(usdExpense, Currency.ARS, rates)).toBe(5000)
   })
 
+  it('usa cotización personalizada del movimiento aunque cambien las settings', () => {
+    const liveRates = { usdWhite: 1500, usdCash: 1400 }
+    const withOverride = testExpense({
+      periodId: PERIOD_ID,
+      accountType: AccountType.WHITE,
+      originalCurrency: Currency.ARS,
+      originalAmount: 12000,
+      exchangeRate: 1200,
+      customExchangeRate: 1200,
+      usdAmount: 10,
+    })
+    expect(accountingAmount(withOverride, Currency.USD, liveRates)).toBe(10)
+
+    const withoutOverride = testExpense({
+      periodId: PERIOD_ID,
+      accountType: AccountType.WHITE,
+      originalCurrency: Currency.ARS,
+      originalAmount: 15000,
+      exchangeRate: 1500,
+      customExchangeRate: null,
+      usdAmount: 10,
+    })
+    expect(accountingAmount(withoutOverride, Currency.USD, liveRates)).toBe(10)
+    expect(accountingAmount(withoutOverride, Currency.USD, { usdWhite: 1000, usdCash: 1000 })).toBe(
+      15,
+    )
+  })
+
   it('muestra cotizaciones solo con ARS+USD y cuenta habilitada', () => {
     const mixed = testSettings({
       enabledCurrencies: [Currency.ARS, Currency.USD],

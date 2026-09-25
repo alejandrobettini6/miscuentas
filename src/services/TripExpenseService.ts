@@ -1,4 +1,3 @@
-import { AccountType, Currency } from '@/types/enums'
 import type {
   CreateTripExpenseInput,
   Settings,
@@ -8,8 +7,7 @@ import type {
 } from '@/types/models'
 import { createId } from '@/utils/id'
 import { isValidAmount } from '@/validators/amount'
-import { resolveAccountingCurrency } from './AccountingCurrency'
-import { CurrencyConverter } from './CurrencyConverter'
+import { ExpenseService } from './ExpenseService'
 
 export class TripExpenseService {
   static buildExpense(
@@ -32,11 +30,20 @@ export class TripExpenseService {
       throw new Error('La moneda no está habilitada en este viaje')
     }
 
-    const { exchangeRate, accountingAmount: usdAmount } = this.resolveAmounts(
+    const customExchangeRate =
+      input.customExchangeRate != null && input.customExchangeRate > 0
+        ? input.customExchangeRate
+        : null
+    if (customExchangeRate != null && !isValidAmount(customExchangeRate)) {
+      throw new Error('La cotización personalizada debe ser mayor a cero')
+    }
+
+    const { exchangeRate, accountingAmount: usdAmount } = ExpenseService.resolveAmounts(
       input.accountType,
       input.originalCurrency,
       input.originalAmount,
       settings,
+      customExchangeRate,
     )
 
     let description: string | null = input.description?.trim() ?? null
@@ -58,6 +65,7 @@ export class TripExpenseService {
       originalAmount: input.originalAmount,
       exchangeRate,
       usdAmount,
+      customExchangeRate,
       createdAt: iso,
       updatedAt: iso,
     }
@@ -76,11 +84,22 @@ export class TripExpenseService {
       throw new Error('La moneda no está habilitada en este viaje')
     }
 
-    const { exchangeRate, accountingAmount: usdAmount } = this.resolveAmounts(
+    const customExchangeRate =
+      input.customExchangeRate !== undefined
+        ? input.customExchangeRate != null && input.customExchangeRate > 0
+          ? input.customExchangeRate
+          : null
+        : expense.customExchangeRate
+    if (customExchangeRate != null && !isValidAmount(customExchangeRate)) {
+      throw new Error('La cotización personalizada debe ser mayor a cero')
+    }
+
+    const { exchangeRate, accountingAmount: usdAmount } = ExpenseService.resolveAmounts(
       expense.accountType,
       input.originalCurrency,
       input.originalAmount,
       settings,
+      customExchangeRate,
     )
 
     return {
@@ -89,39 +108,8 @@ export class TripExpenseService {
       originalAmount: input.originalAmount,
       exchangeRate,
       usdAmount,
+      customExchangeRate,
       updatedAt: new Date().toISOString(),
-    }
-  }
-
-  static resolveAmounts(
-    accountType: AccountType,
-    currency: Currency,
-    amount: number,
-    settings: Settings,
-  ): { exchangeRate: number; accountingAmount: number } {
-    const accountingCurrency = resolveAccountingCurrency(settings)
-    const accountRate =
-      accountType === AccountType.WHITE ? settings.usdWhite : settings.usdCash
-
-    if (currency === accountingCurrency) {
-      return {
-        exchangeRate: accountRate,
-        accountingAmount: CurrencyConverter.roundMoney(amount),
-      }
-    }
-
-    if (accountRate <= 0) {
-      throw new Error('La cotización debe ser mayor a cero')
-    }
-
-    return {
-      exchangeRate: accountRate,
-      accountingAmount: CurrencyConverter.convertToAccounting(
-        amount,
-        currency,
-        accountingCurrency,
-        accountRate,
-      ),
     }
   }
 }

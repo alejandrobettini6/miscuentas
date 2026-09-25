@@ -67,6 +67,18 @@ export interface MonetaryRecord {
   accountType: AccountType
   originalCurrency: Currency
   originalAmount: number
+  customExchangeRate?: number | null
+}
+
+/** Cotización ARS/USD efectiva para un movimiento (override o settings). */
+export function effectiveExchangeRate(
+  record: Pick<MonetaryRecord, 'accountType' | 'customExchangeRate'>,
+  rates: ExchangeRates,
+): number {
+  if (record.customExchangeRate != null && record.customExchangeRate > 0) {
+    return record.customExchangeRate
+  }
+  return record.accountType === AccountType.WHITE ? rates.usdWhite : rates.usdCash
 }
 
 /**
@@ -86,8 +98,7 @@ export function accountingAmountFromRecord(
     return record.originalAmount
   }
 
-  const rate =
-    record.accountType === AccountType.WHITE ? rates.usdWhite : rates.usdCash
+  const rate = effectiveExchangeRate(record, rates)
 
   if (accountingCurrency === Currency.USD) {
     return CurrencyConverter.roundMoney(record.originalAmount / rate)
@@ -131,12 +142,17 @@ export function previewAccountingAmount(
   accountingCurrency: Currency,
   accountType: AccountType,
   rates: ExchangeRates,
+  customExchangeRate?: number | null,
 ): number {
+  const rate =
+    customExchangeRate != null && customExchangeRate > 0
+      ? customExchangeRate
+      : accountExchangeRate(accountType, rates)
   return CurrencyConverter.convertToAccounting(
     amount,
     inputCurrency,
     accountingCurrency,
-    accountExchangeRate(accountType, rates),
+    rate,
   )
 }
 

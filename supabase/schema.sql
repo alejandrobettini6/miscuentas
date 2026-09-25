@@ -75,6 +75,7 @@ create table public.expenses (
   original_amount numeric(18, 2) not null check (original_amount <> 0),
   exchange_rate numeric(18, 6) not null check (exchange_rate > 0),
   usd_amount numeric(18, 2) not null,
+  custom_exchange_rate numeric(18, 6) null check (custom_exchange_rate is null or custom_exchange_rate > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

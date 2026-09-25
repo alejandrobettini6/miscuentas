@@ -46,6 +46,7 @@ const whiteArs: Expense = {
   originalAmount: 24500,
   exchangeRate: 1554,
   usdAmount: 15.77,
+  customExchangeRate: null,
   createdAt: '2026-07-04T18:44:04.084Z',
   updatedAt: '2026-07-04T18:44:04.084Z',
 }
@@ -61,6 +62,7 @@ const cashUsd: Expense = {
   originalAmount: 10.2,
   exchangeRate: 1,
   usdAmount: 10.2,
+  customExchangeRate: null,
   createdAt: '2026-07-04T18:44:51.58Z',
   updatedAt: '2026-07-04T18:44:51.58Z',
 }

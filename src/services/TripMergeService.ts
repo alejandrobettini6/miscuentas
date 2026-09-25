@@ -137,6 +137,7 @@ export class TripMergeService {
         description: resolved.description,
         originalCurrency: expense.originalCurrency,
         originalAmount: expense.originalAmount,
+        customExchangeRate: expense.customExchangeRate,
       })
     }
 

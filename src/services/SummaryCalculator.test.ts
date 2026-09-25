@@ -13,6 +13,7 @@ function expense(partial: Partial<Expense> & Pick<Expense, 'accountType' | 'usdA
     originalCurrency: Currency.USD,
     originalAmount: partial.usdAmount,
     exchangeRate: 1,
+    customExchangeRate: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...partial,
