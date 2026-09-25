@@ -66,6 +66,8 @@ export interface Expense {
   originalAmount: number
   exchangeRate: number
   usdAmount: number
+  /** Si no es null, este movimiento usa siempre esta cotización ARS/USD. */
+  customExchangeRate: number | null
   createdAt: string
   updatedAt: string
 }
@@ -155,11 +157,13 @@ export interface CreateExpenseInput {
   description?: string | null
   originalCurrency: Currency
   originalAmount: number
+  customExchangeRate?: number | null
 }
 
 export interface UpdateExpenseInput {
   originalCurrency: Currency
   originalAmount: number
+  customExchangeRate?: number | null
 }
 
 export interface UpdateSettingsInput {
@@ -216,6 +220,7 @@ export interface TripExpense {
   originalAmount: number
   exchangeRate: number
   usdAmount: number
+  customExchangeRate: number | null
   createdAt: string
   updatedAt: string
 }
@@ -257,11 +262,13 @@ export interface CreateTripExpenseInput {
   description?: string | null
   originalCurrency: Currency
   originalAmount: number
+  customExchangeRate?: number | null
 }
 
 export interface UpdateTripExpenseInput {
   originalCurrency: Currency
   originalAmount: number
+  customExchangeRate?: number | null
 }
 
 export interface ImportAccountsPayload {

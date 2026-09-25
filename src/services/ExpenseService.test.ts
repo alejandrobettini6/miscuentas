@@ -235,4 +235,39 @@ describe('ExpenseService', () => {
     expect(expense.exchangeRate).toBe(1000)
     expect(expense.usdAmount).toBe(15000)
   })
+
+  it('aplica cotización personalizada solo al movimiento', () => {
+    const settings = testSettings({ usdWhite: 1000, usdCash: 900 })
+    const expense = ExpenseService.buildExpense(
+      'u',
+      {
+        periodId: PERIOD_ID,
+        accountType: AccountType.WHITE,
+        category: Category.SUPER,
+        originalAmount: 6000,
+        originalCurrency: Currency.ARS,
+        customExchangeRate: 1200,
+      },
+      settings,
+    )
+    expect(expense.customExchangeRate).toBe(1200)
+    expect(expense.exchangeRate).toBe(1200)
+    expect(expense.usdAmount).toBe(5)
+  })
+
+  it('sin cotización personalizada deja customExchangeRate en null', () => {
+    const expense = ExpenseService.buildExpense(
+      'u',
+      {
+        periodId: PERIOD_ID,
+        accountType: AccountType.WHITE,
+        category: Category.SUPER,
+        originalAmount: 1000,
+        originalCurrency: Currency.ARS,
+      },
+      testSettings({ usdWhite: 1000 }),
+    )
+    expect(expense.customExchangeRate).toBeNull()
+    expect(expense.exchangeRate).toBe(1000)
+  })
 })

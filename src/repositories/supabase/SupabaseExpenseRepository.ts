@@ -20,6 +20,7 @@ interface ExpenseRow {
   original_amount: number
   exchange_rate: number
   usd_amount: number
+  custom_exchange_rate: number | null
   created_at: string
   updated_at: string
 }
@@ -36,6 +37,8 @@ function mapRow(row: ExpenseRow): Expense {
     originalAmount: Number(row.original_amount),
     exchangeRate: Number(row.exchange_rate),
     usdAmount: Number(row.usd_amount),
+    customExchangeRate:
+      row.custom_exchange_rate != null ? Number(row.custom_exchange_rate) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -53,6 +56,7 @@ function toRow(expense: Expense): ExpenseRow {
     original_amount: expense.originalAmount,
     exchange_rate: expense.exchangeRate,
     usd_amount: expense.usdAmount,
+    custom_exchange_rate: expense.customExchangeRate,
     created_at: expense.createdAt,
     updated_at: expense.updatedAt,
   }

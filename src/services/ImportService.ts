@@ -170,6 +170,10 @@ export class ImportService {
         originalAmount,
         exchangeRate,
         usdAmount,
+        customExchangeRate:
+          item.customExchangeRate != null && Number(item.customExchangeRate) > 0
+            ? Number(item.customExchangeRate)
+            : null,
         createdAt,
         updatedAt,
       })

@@ -35,11 +35,13 @@ export class ExpenseService {
       throw new Error('La categoría no está habilitada')
     }
 
+    const customExchangeRate = normalizeCustomExchangeRate(input.customExchangeRate)
     const { exchangeRate, accountingAmount: usdAmountRaw } = this.resolveAmounts(
       input.accountType,
       input.originalCurrency,
       input.originalAmount,
       settings,
+      customExchangeRate,
     )
     let usdAmount = usdAmountRaw
     let originalAmount = input.originalAmount
@@ -78,6 +80,7 @@ export class ExpenseService {
       exchangeRate,
       // Con base ARS, usdAmount almacena pesos (importe contable).
       usdAmount,
+      customExchangeRate,
       createdAt: iso,
       updatedAt: iso,
     }
@@ -95,11 +98,16 @@ export class ExpenseService {
       throw new Error('La moneda no está habilitada')
     }
 
+    const customExchangeRate =
+      input.customExchangeRate !== undefined
+        ? normalizeCustomExchangeRate(input.customExchangeRate)
+        : expense.customExchangeRate
     const { exchangeRate, accountingAmount: usdAmountRaw } = this.resolveAmounts(
       expense.accountType,
       input.originalCurrency,
       input.originalAmount,
       settings,
+      customExchangeRate,
     )
     let usdAmount = usdAmountRaw
     let originalAmount = input.originalAmount
@@ -116,6 +124,7 @@ export class ExpenseService {
       originalAmount,
       exchangeRate,
       usdAmount,
+      customExchangeRate,
       updatedAt: new Date().toISOString(),
     }
   }
@@ -134,10 +143,15 @@ export class ExpenseService {
     currency: Currency,
     amount: number,
     settings: Settings,
+    customExchangeRate: number | null = null,
   ): { exchangeRate: number; accountingAmount: number } {
     const accountingCurrency = resolveAccountingCurrency(settings)
-    const accountRate =
+    const settingsRate =
       accountType === AccountType.WHITE ? settings.usdWhite : settings.usdCash
+    const accountRate =
+      customExchangeRate != null && customExchangeRate > 0
+        ? customExchangeRate
+        : settingsRate
 
     if (currency === accountingCurrency) {
       return {
@@ -168,4 +182,12 @@ export class ExpenseService {
   ): number {
     return accountType === AccountType.WHITE ? settings.usdWhite : settings.usdCash
   }
+}
+
+function normalizeCustomExchangeRate(value: number | null | undefined): number | null {
+  if (value == null) return null
+  if (!isValidAmount(value)) {
+    throw new Error('La cotización personalizada debe ser mayor a cero')
+  }
+  return value
 }

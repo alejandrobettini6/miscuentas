@@ -8,6 +8,7 @@ interface AmountInputProps {
   onBlur?: () => void
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void
   className?: string
+  placeholder?: string
   'aria-label'?: string
   'aria-invalid'?: boolean
   'aria-describedby'?: string
@@ -23,6 +24,7 @@ export const AmountInput = forwardRef<HTMLInputElement, AmountInputProps>(
       onBlur,
       onKeyDown,
       className = '',
+      placeholder,
       'aria-label': ariaLabel,
       'aria-invalid': ariaInvalid,
       'aria-describedby': ariaDescribedBy,
@@ -46,6 +48,7 @@ export const AmountInput = forwardRef<HTMLInputElement, AmountInputProps>(
         autoComplete="off"
         autoFocus={autoFocus}
         value={value}
+        placeholder={placeholder}
         onChange={handleChange}
         onBlur={onBlur}
         onKeyDown={onKeyDown}

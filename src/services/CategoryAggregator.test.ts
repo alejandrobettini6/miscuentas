@@ -16,6 +16,7 @@ function expense(partial: Partial<Expense>): Expense {
     originalAmount: 10,
     exchangeRate: 1,
     usdAmount: 10,
+    customExchangeRate: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...partial,

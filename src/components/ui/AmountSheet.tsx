@@ -31,11 +31,15 @@ interface AmountSheetProps {
   exchangeRates?: ExchangeRates
   /** Cuenta vigente cuando no hay selector interno (tab Blanco/Negro o fila de ingreso). */
   activeAccountType?: AccountType
+  /** Gastos con ARS+USD: permite override de cotización por movimiento. */
+  allowCustomExchangeRate?: boolean
+  initialCustomExchangeRate?: string
   onSubmit: (
     amount: string,
     currency: Currency,
     extra?: string,
     accountType?: AccountType,
+    customExchangeRate?: number | null,
   ) => void
   onCancel: () => void
 }
@@ -56,6 +60,8 @@ export function AmountSheet({
   accountingCurrency,
   exchangeRates,
   activeAccountType,
+  allowCustomExchangeRate = false,
+  initialCustomExchangeRate = '',
   onSubmit,
   onCancel,
 }: AmountSheetProps) {
@@ -68,6 +74,8 @@ export function AmountSheet({
   const [categoryName, setCategoryName] = useState('')
   const [detail, setDetail] = useState('')
   const [amountError, setAmountError] = useState(false)
+  const [customRate, setCustomRate] = useState('')
+  const [customRateError, setCustomRateError] = useState(false)
   const submittedRef = useRef(false)
   const cancelledRef = useRef(false)
 
@@ -100,6 +108,15 @@ export function AmountSheet({
     setAccountType(safeAccount)
     setCategoryName('')
     setDetail(showIncomeDetail ? initialDetail : '')
+    setCustomRate(
+      initialCustomExchangeRate
+        ? initialCustomExchangeRate.includes('.') ||
+            initialCustomExchangeRate.includes(',')
+          ? initialCustomExchangeRate
+          : formatAmountFromNumber(Number(initialCustomExchangeRate))
+        : '',
+    )
+    setCustomRateError(false)
     const timer = window.setTimeout(() => inputRef.current?.focus(), 50)
     return () => window.clearTimeout(timer)
   }, [
@@ -111,6 +128,7 @@ export function AmountSheet({
     enabledCurrencies,
     enabledAccounts,
     showIncomeDetail,
+    initialCustomExchangeRate,
   ])
 
   useBackButtonClose(open, () => {
@@ -119,6 +137,46 @@ export function AmountSheet({
   })
 
   if (!open) return null
+
+  const showCurrencyToggle = enabledCurrencies.length > 1
+  const showAccountSelector = showAccountToggle && enabledAccounts.length > 1
+  const effectiveAccount = showAccountToggle
+    ? accountType
+    : (activeAccountType ?? accountType)
+  const showCustomExchangeRate =
+    allowCustomExchangeRate &&
+    enabledCurrencies.length > 1 &&
+    currency === Currency.ARS
+  const showConversionPreview = needsConversionPreview(
+    enabledCurrencies,
+    currency,
+    accountingCurrency,
+  )
+  const parsedCustomRate = customRate.trim() ? parseAmountInput(customRate) : null
+  const effectiveCustomRate =
+    showCustomExchangeRate &&
+    parsedCustomRate != null &&
+    parsedCustomRate > 0
+      ? parsedCustomRate
+      : null
+  const defaultAccountRate = exchangeRates
+    ? accountExchangeRate(effectiveAccount, exchangeRates)
+    : 1
+  const displayRate = effectiveCustomRate ?? defaultAccountRate
+  const parsedAmount = parseAmountInput(amount)
+  const previewAmount =
+    showConversionPreview &&
+    accountingCurrency != null &&
+    parsedAmount != null
+      ? previewAccountingAmount(
+          parsedAmount,
+          currency,
+          accountingCurrency,
+          effectiveAccount,
+          exchangeRates ?? { usdWhite: 1, usdCash: 1 },
+          effectiveCustomRate,
+        )
+      : null
 
   const commit = (options?: { dismissIfEmpty?: boolean }) => {
     if (submittedRef.current || cancelledRef.current) return
@@ -136,13 +194,34 @@ export function AmountSheet({
     }
 
     setAmountError(false)
+
+    let customExchangeRate: number | null = null
+    if (showCustomExchangeRate && customRate.trim()) {
+      const parsedCustom = parseAmountInput(customRate)
+      if (parsedCustom === null || parsedCustom <= 0) {
+        setCustomRateError(true)
+        submittedRef.current = false
+        return
+      }
+      setCustomRateError(false)
+      customExchangeRate = parsedCustom
+    } else {
+      setCustomRateError(false)
+    }
+
     submittedRef.current = true
     const extra = showCategoryName
       ? categoryName
       : showDetail || showIncomeDetail
         ? detail
         : undefined
-    onSubmit(amount, currency, extra, showAccountToggle ? accountType : undefined)
+    onSubmit(
+      amount,
+      currency,
+      extra,
+      showAccountToggle ? accountType : undefined,
+      showCustomExchangeRate ? customExchangeRate : undefined,
+    )
   }
 
   const scheduleCommit = () => {
@@ -162,33 +241,6 @@ export function AmountSheet({
     setAmount(value)
     if (amountError) setAmountError(false)
   }
-
-  const showCurrencyToggle = enabledCurrencies.length > 1
-  const showAccountSelector = showAccountToggle && enabledAccounts.length > 1
-  const effectiveAccount = showAccountToggle
-    ? accountType
-    : (activeAccountType ?? accountType)
-  const showConversionPreview = needsConversionPreview(
-    enabledCurrencies,
-    currency,
-    accountingCurrency,
-  )
-  const accountRate = exchangeRates
-    ? accountExchangeRate(effectiveAccount, exchangeRates)
-    : 1
-  const parsedAmount = parseAmountInput(amount)
-  const previewAmount =
-    showConversionPreview &&
-    accountingCurrency != null &&
-    parsedAmount != null
-      ? previewAccountingAmount(
-          parsedAmount,
-          currency,
-          accountingCurrency,
-          effectiveAccount,
-          exchangeRates ?? { usdWhite: 1, usdCash: 1 },
-        )
-      : null
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-[var(--overlay)] p-4">
@@ -300,7 +352,9 @@ export function AmountSheet({
         {showConversionPreview && accountingCurrency != null && (
           <div className="mb-4 space-y-1 text-sm text-[var(--muted)]">
             <p className="tabular-nums">
-              {formatExchangeRateLabel(accountRate, effectiveAccount)}
+              {effectiveCustomRate != null
+                ? `Cotización personalizada: $ ${formatAmountFromNumber(displayRate)}`
+                : formatExchangeRateLabel(displayRate, effectiveAccount)}
             </p>
             <p aria-live="polite">
               Se registrará:{' '}
@@ -385,6 +439,46 @@ export function AmountSheet({
               className="min-h-12 w-full rounded-xl border border-[var(--border)] px-4 text-base outline-none focus:border-[var(--blue)]"
               aria-label="Detalle (opcional)"
             />
+          </label>
+        )}
+
+        {showCustomExchangeRate && (
+          <label className="mb-4 block" htmlFor="custom-rate-input">
+            <span
+              className={`mb-2 hidden text-sm font-medium sm:block ${
+                customRateError ? 'text-[var(--red)]' : 'text-[var(--text)]'
+              }`}
+            >
+              Cotización personalizada (opcional)
+            </span>
+            <AmountInput
+              id="custom-rate-input"
+              value={customRate}
+              onChange={(value) => {
+                setCustomRate(value)
+                if (customRateError) setCustomRateError(false)
+              }}
+              onBlur={scheduleCommit}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  commit()
+                }
+              }}
+              placeholder={`Default: ${formatAmountFromNumber(defaultAccountRate)}`}
+              className={`min-h-12 w-full rounded-xl border px-4 text-center text-base outline-none placeholder:text-transparent sm:placeholder:text-[var(--muted)] ${
+                customRateError
+                  ? 'border-[var(--red)] focus:border-[var(--red)]'
+                  : 'border-[var(--border)] focus:border-[var(--blue)]'
+              }`}
+              aria-label="Cotización personalizada (opcional)"
+              aria-invalid={customRateError}
+            />
+            {customRateError && (
+              <p className="mt-2 text-sm text-[var(--red)]" role="alert">
+                La cotización debe ser mayor a cero
+              </p>
+            )}
           </label>
         )}
 
