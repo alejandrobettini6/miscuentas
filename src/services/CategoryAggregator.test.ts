@@ -3,6 +3,7 @@ import { FIXED_CATEGORIES } from '@/constants/categories'
 import { AccountType, Category, Currency } from '@/types/enums'
 import type { Expense } from '@/types/models'
 import { CategoryAggregator } from './CategoryAggregator'
+import { SummaryCalculator } from './SummaryCalculator'
 
 function expense(partial: Partial<Expense>): Expense {
   return {
@@ -214,5 +215,66 @@ describe('CategoryAggregator', () => {
     expect(named).toHaveLength(2)
     expect(named.find((r) => r.label === 'Mascotas')?.totalUsd).toBe(40)
     expect(named.find((r) => r.label === 'Hobby')?.totalUsd).toBe(0)
+  })
+
+  describe('buildCombinedRows', () => {
+    it('suma Blanco y Negro por categoría y coincide con SummaryCalculator', () => {
+      const expenses = [
+        expense({
+          accountType: AccountType.WHITE,
+          category: Category.SUPER,
+          originalAmount: 100,
+          usdAmount: 100,
+        }),
+        expense({
+          accountType: AccountType.CASH,
+          category: Category.SUPER,
+          originalAmount: 40,
+          usdAmount: 40,
+        }),
+        expense({
+          accountType: AccountType.CASH,
+          category: Category.DELIVERY,
+          originalAmount: 10,
+          usdAmount: 10,
+        }),
+      ]
+      const rows = CategoryAggregator.buildCombinedRows(expenses)
+      const superRow = rows.find((r) => r.label === 'Super')
+      expect(superRow?.totalWhite).toBe(100)
+      expect(superRow?.totalCash).toBe(40)
+      expect(superRow?.totalCombined).toBe(140)
+
+      const summary = SummaryCalculator.calculate(expenses, 0)
+      const sumCombined = rows.reduce((acc, r) => acc + r.totalCombined, 0)
+      const sumWhite = rows.reduce((acc, r) => acc + r.totalWhite, 0)
+      const sumCash = rows.reduce((acc, r) => acc + r.totalCash, 0)
+      expect(sumCombined).toBe(summary.totalSpent)
+      expect(sumWhite).toBe(summary.totalWhite)
+      expect(sumCash).toBe(summary.totalCash)
+    })
+
+    it('ordena Otros grandes por total combinado', () => {
+      const expenses = [
+        expense({
+          accountType: AccountType.WHITE,
+          category: Category.OTHER,
+          description: 'Chico',
+          originalAmount: 50,
+          usdAmount: 50,
+        }),
+        expense({
+          accountType: AccountType.CASH,
+          category: Category.OTHER,
+          description: 'Grande',
+          originalAmount: 200,
+          usdAmount: 200,
+        }),
+      ]
+      const rows = CategoryAggregator.buildCombinedRows(expenses, ['Chico', 'Grande'])
+      const grandes = rows.filter((r) => r.isOtrosGrande)
+      expect(grandes[0]?.label).toBe('Grande')
+      expect(grandes[1]?.label).toBe('Chico')
+    })
   })
 })

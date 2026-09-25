@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import toast from 'react-hot-toast'
 import { AddCategoryRow } from '@/components/expenses/AddCategoryRow'
 import { CategoryRow } from '@/components/expenses/CategoryRow'
+import { TotalsCategoryRow } from '@/components/expenses/TotalsCategoryRow'
 import { ExpenseSearchResultRow } from '@/components/expenses/ExpenseSearchResultRow'
 import { Header } from '@/components/layout/Header'
 import { SideMenu } from '@/components/layout/SideMenu'
@@ -59,7 +60,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Tabs } from '@/components/ui/Tabs'
 import { ViewTabs } from '@/components/ui/ViewTabs'
-import { CATEGORY_LABELS, DEFAULT_SETTINGS } from '@/constants/categories'
+import { CATEGORY_LABELS, DEFAULT_SETTINGS, FIXED_CATEGORIES } from '@/constants/categories'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useSettingsContext } from '@/contexts/SettingsContext'
 import { useAmountsVisibility } from '@/hooks/useAmountsVisibility'
@@ -95,8 +96,23 @@ import {
 import { ClosePeriodSavingsModal } from '@/components/savings/ClosePeriodSavingsModal'
 import { useSavings } from '@/hooks/useSavings'
 import { categoryRowScrollKey } from '@/utils/categoryScrollKey'
-import { AccountType, Category, Currency, MonthMode, PeriodStatus, SummaryDisplayMode, ViewMode } from '@/types/enums'
-import type { CategoryRow as CategoryRowModel, Expense, Period } from '@/types/models'
+import {
+  AccountType,
+  Category,
+  Currency,
+  MonthMode,
+  PeriodStatus,
+  SummaryDisplayMode,
+  ViewMode,
+  isTotalsExpenseView,
+  type ExpenseAccountView,
+} from '@/types/enums'
+import type {
+  CategoryRow as CategoryRowModel,
+  CombinedCategoryRow,
+  Expense,
+  Period,
+} from '@/types/models'
 import { getMonthLabelFromKey, getYearMonthKey, nextYearMonth } from '@/utils/date'
 import { getErrorMessage } from '@/utils/errors'
 import {
@@ -154,9 +170,16 @@ export function HomePage() {
   ]
 
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.EXPENSES)
-  const [accountType, setAccountType] = useState<AccountType>(
+  const [expenseAccountView, setExpenseAccountView] = useState<ExpenseAccountView>(
     enabledAccounts[0] ?? AccountType.WHITE,
   )
+  const showExpenseTotals =
+    enabledAccounts.includes(AccountType.WHITE) &&
+    enabledAccounts.includes(AccountType.CASH)
+  const isTotalsView = isTotalsExpenseView(expenseAccountView)
+  const activeAccountType: AccountType = isTotalsView
+    ? AccountType.WHITE
+    : expenseAccountView
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -175,9 +198,12 @@ export function HomePage() {
   const [undoDeadline, setUndoDeadline] = useState<number | null>(null)
   const [undoExpenseId, setUndoExpenseId] = useState<string | null>(null)
   const [busyRowKey, setBusyRowKey] = useState<string | null>(null)
-  const [searchQueries, setSearchQueries] = useState<Record<AccountType, string>>({
+  const [searchQueries, setSearchQueries] = useState<
+    Record<AccountType | 'TOTALS', string>
+  >({
     [AccountType.WHITE]: '',
     [AccountType.CASH]: '',
+    TOTALS: '',
   })
   const [tripHistoryOpen, setTripHistoryOpen] = useState(false)
   const [savingsPanelOpen, setSavingsPanelOpen] = useState(false)
@@ -207,10 +233,14 @@ export function HomePage() {
   }, [settings])
 
   useEffect(() => {
-    if (!enabledAccounts.includes(accountType)) {
-      setAccountType(enabledAccounts[0] ?? AccountType.WHITE)
+    if (isTotalsView && !showExpenseTotals) {
+      setExpenseAccountView(enabledAccounts[0] ?? AccountType.WHITE)
+      return
     }
-  }, [enabledAccounts, accountType])
+    if (!isTotalsView && !enabledAccounts.includes(expenseAccountView)) {
+      setExpenseAccountView(enabledAccounts[0] ?? AccountType.WHITE)
+    }
+  }, [enabledAccounts, expenseAccountView, isTotalsView, showExpenseTotals])
 
   useEffect(() => {
     if (selectedPeriodId && periods.some((p) => p.id === selectedPeriodId)) return
@@ -248,12 +278,39 @@ export function HomePage() {
 
   const { summary, color, progress, rows, accountingCurrency, rates } = useSummary(
     visibleExpenses,
-    accountType,
+    activeAccountType,
     periodLimit,
   )
 
-  const activeSearchQuery = searchQueries[accountType]
+  const enabledFixedCategories = settings?.enabledFixedCategories ?? FIXED_CATEGORIES
+
+  const combinedRows = useMemo(() => {
+    return CategoryAggregator.buildCombinedRows(
+      visibleExpenses,
+      customCategories,
+      enabledFixedCategories,
+      accountingCurrency,
+      rates,
+    )
+  }, [
+    visibleExpenses,
+    customCategories,
+    enabledFixedCategories,
+    accountingCurrency,
+    rates,
+  ])
+
+  const activeSearchKey: AccountType | 'TOTALS' = isTotalsView
+    ? 'TOTALS'
+    : expenseAccountView
+  const activeSearchQuery = searchQueries[activeSearchKey]
   const isSearching = activeSearchQuery.trim().length > 0
+
+  const filteredCombinedRows = useMemo(() => {
+    const q = activeSearchQuery.trim().toLowerCase()
+    if (!q) return combinedRows
+    return combinedRows.filter((row) => row.label.toLowerCase().includes(q))
+  }, [combinedRows, activeSearchQuery])
 
   const searchResults = useMemo(() => {
     if (!isSearching) return []
@@ -261,7 +318,7 @@ export function HomePage() {
       query: activeSearchQuery,
       rows,
       expenses: visibleExpenses,
-      accountType,
+      accountType: activeAccountType,
       customCategories,
       accountingCurrency,
       rates,
@@ -271,7 +328,7 @@ export function HomePage() {
     activeSearchQuery,
     rows,
     visibleExpenses,
-    accountType,
+    activeAccountType,
     customCategories,
     accountingCurrency,
     rates,
@@ -279,6 +336,12 @@ export function HomePage() {
 
   const rowKey = useCallback(
     (row: CategoryRowModel) => `${row.category}:${row.description ?? ''}`,
+    [],
+  )
+
+  const combinedRowKey = useCallback(
+    (row: CombinedCategoryRow) =>
+      `${row.category}:${row.description ?? ''}:${row.isOtrosGrande ? '1' : '0'}`,
     [],
   )
 
@@ -389,10 +452,10 @@ export function HomePage() {
 
   const handleRegisterRow = useCallback(
     (row: CategoryRowModel) => {
-      if (isReadOnly) return
+      if (isReadOnly || isTotalsView) return
       setAmountMode({ type: 'create', row })
     },
-    [isReadOnly],
+    [isReadOnly, isTotalsView],
   )
 
   const handleEditRow = useCallback(
@@ -435,9 +498,13 @@ export function HomePage() {
     [rowKey],
   )
 
-  const handleViewDetailsRow = useCallback((row: CategoryRowModel) => {
-    setDetailsRow(row)
-  }, [])
+  const handleViewDetailsRow = useCallback(
+    (row: CategoryRowModel) => {
+      if (isTotalsView) return
+      setDetailsRow(row)
+    },
+    [isTotalsView],
+  )
 
   const mergedTripForDetails = useMemo(() => {
     if (!detailsRow) return null
@@ -558,11 +625,11 @@ export function HomePage() {
     if (!detailsRow) return []
     return CategoryAggregator.expensesForRow(
       visibleExpenses,
-      accountType,
+      activeAccountType,
       detailsRow,
       customCategories,
     )
-  }, [detailsRow, visibleExpenses, accountType, customCategories])
+  }, [detailsRow, visibleExpenses, activeAccountType, customCategories])
 
   const detailsAccountTotals = useMemo(() => {
     if (!detailsRow) return { totalWhite: 0, totalCash: 0 }
@@ -637,7 +704,7 @@ export function HomePage() {
 
         const expense = await createExpense({
           periodId: selectedPeriod.id,
-          accountType,
+          accountType: _accountTypeFromSheet ?? activeAccountType,
           category: Category.OTHER,
           description,
           originalAmount: amount,
@@ -653,7 +720,7 @@ export function HomePage() {
       if (mode.row.isOtrosGrande) {
         const expense = await createExpense({
           periodId: selectedPeriod.id,
-          accountType,
+          accountType: _accountTypeFromSheet ?? activeAccountType,
           category: Category.OTHER,
           description: mode.row.description,
           originalAmount: amount,
@@ -678,7 +745,7 @@ export function HomePage() {
 
       const expense = await createExpense({
         periodId: selectedPeriod.id,
-        accountType,
+        accountType: _accountTypeFromSheet ?? activeAccountType,
         category: mode.row.category,
         description: detail,
         originalAmount: amount,
@@ -938,9 +1005,10 @@ export function HomePage() {
 
       <div className="mt-4">
         <Tabs
-          value={accountType}
-          onChange={setAccountType}
+          value={expenseAccountView}
+          onChange={setExpenseAccountView}
           enabledAccounts={enabledAccounts}
+          showTotals={showExpenseTotals}
           disabled={locked && !isReadOnly ? true : false}
         />
       </div>
@@ -949,21 +1017,52 @@ export function HomePage() {
         <input
           type="search"
           value={activeSearchQuery}
-          placeholder="Buscar categoría o gasto…"
+          placeholder={
+            isTotalsView ? 'Buscar categoría…' : 'Buscar categoría o gasto…'
+          }
           disabled={isLoadingData}
           className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-base outline-none focus:border-[var(--blue)] disabled:opacity-50"
           onChange={(event) =>
             setSearchQueries((prev) => ({
               ...prev,
-              [accountType]: event.target.value,
+              [activeSearchKey]: event.target.value,
             }))
           }
         />
       </div>
 
-      <section className="mt-2 rounded-2xl bg-[var(--surface)] px-3">
+      {isTotalsView && (
+        <p className="mt-3 rounded-xl bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--muted)]">
+          <span className="font-medium text-[var(--text)]">Totales por categoría.</span>{' '}
+          La suma incluye Blanco y Negro. Para cargar gastos o ver movimientos, elegí la pestaña
+          Blanco o Negro.
+        </p>
+      )}
+
+      <section
+        className="mt-2 rounded-2xl bg-[var(--surface)] px-3"
+        role={isTotalsView ? 'list' : undefined}
+        aria-label={isTotalsView ? 'Totales por categoría' : undefined}
+      >
         {isLoadingData ? (
           <p className="py-8 text-center text-[var(--muted)]">Cargando…</p>
+        ) : isTotalsView ? (
+          (isSearching ? filteredCombinedRows : combinedRows).length === 0 ? (
+            <p className="py-8 text-center text-sm text-[var(--muted)]">
+              {isSearching
+                ? `Sin resultados para «${activeSearchQuery.trim()}»`
+                : 'Sin categorías'}
+            </p>
+          ) : (
+            (isSearching ? filteredCombinedRows : combinedRows).map((row) => (
+              <TotalsCategoryRow
+                key={combinedRowKey(row)}
+                row={row}
+                accountingCurrency={accountingCurrency}
+                amountsHidden={amountsHidden}
+              />
+            ))
+          )
         ) : isSearching ? (
           searchResults.length === 0 ? (
             <p className="py-8 text-center text-sm text-[var(--muted)]">
@@ -1051,7 +1150,7 @@ export function HomePage() {
         showDetail={showDetail}
         accountingCurrency={accountingCurrency}
         exchangeRates={rates}
-        activeAccountType={accountType}
+        activeAccountType={activeAccountType}
         allowCustomExchangeRate={settings ? needsExchangeRates(settings) : false}
         initialCustomExchangeRate={
           amountMode?.type === 'edit' && amountMode.expense.customExchangeRate != null
@@ -1187,7 +1286,7 @@ export function HomePage() {
           <CategoryDetailsModal
             open
             row={detailsRow}
-            accountType={accountType}
+            accountType={activeAccountType}
             items={detailsItems}
             totalWhite={
               mergedTripForDetails && tripBreakdown

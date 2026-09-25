@@ -443,43 +443,49 @@ export function AmountSheet({
         )}
 
         {showCustomExchangeRate && (
-          <label className="mb-4 block" htmlFor="custom-rate-input">
-            <span
-              className={`mb-2 hidden text-sm font-medium sm:block ${
-                customRateError ? 'text-[var(--red)]' : 'text-[var(--text)]'
-              }`}
-            >
-              Cotización personalizada (opcional)
-            </span>
-            <AmountInput
-              id="custom-rate-input"
-              value={customRate}
-              onChange={(value) => {
-                setCustomRate(value)
-                if (customRateError) setCustomRateError(false)
-              }}
-              onBlur={scheduleCommit}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  commit()
-                }
-              }}
-              placeholder={`Default: ${formatAmountFromNumber(defaultAccountRate)}`}
-              className={`min-h-12 w-full rounded-xl border px-4 text-center text-base outline-none placeholder:text-transparent sm:placeholder:text-[var(--muted)] ${
-                customRateError
-                  ? 'border-[var(--red)] focus:border-[var(--red)]'
-                  : 'border-[var(--border)] focus:border-[var(--blue)]'
-              }`}
-              aria-label="Cotización personalizada (opcional)"
-              aria-invalid={customRateError}
-            />
-            {customRateError && (
-              <p className="mt-2 text-sm text-[var(--red)]" role="alert">
-                La cotización debe ser mayor a cero
-              </p>
-            )}
-          </label>
+          <div className="mb-4">
+            <p className="mb-3 text-sm text-[var(--muted)]">
+              Solo para este gasto. Si la dejás vacía, usamos{' '}
+              {formatExchangeRateLabel(defaultAccountRate, effectiveAccount)}.
+            </p>
+            <label className="block" htmlFor="custom-rate-input">
+              <span
+                className={`mb-2 block text-sm font-medium ${
+                  customRateError ? 'text-[var(--red)]' : 'text-[var(--text)]'
+                }`}
+              >
+                Cotización personalizada (opcional)
+              </span>
+              <AmountInput
+                id="custom-rate-input"
+                value={customRate}
+                onChange={(value) => {
+                  setCustomRate(value)
+                  if (customRateError) setCustomRateError(false)
+                }}
+                onBlur={scheduleCommit}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    commit()
+                  }
+                }}
+                placeholder={`Default: ${formatAmountFromNumber(defaultAccountRate)}`}
+                className={`min-h-12 w-full rounded-xl border px-4 text-center text-base outline-none placeholder:text-transparent sm:placeholder:text-[var(--muted)] ${
+                  customRateError
+                    ? 'border-[var(--red)] focus:border-[var(--red)]'
+                    : 'border-[var(--border)] focus:border-[var(--blue)]'
+                }`}
+                aria-label="Cotización personalizada (opcional)"
+                aria-invalid={customRateError}
+              />
+              {customRateError && (
+                <p className="mt-2 text-sm text-[var(--red)]" role="alert">
+                  La cotización debe ser mayor a cero
+                </p>
+              )}
+            </label>
+          </div>
         )}
 
         <div className="flex gap-3">

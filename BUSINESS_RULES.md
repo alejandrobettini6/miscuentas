@@ -747,6 +747,16 @@ Visualmente nunca se muestran movimientos individuales.
 
 Visualmente solamente se muestran acumulados.
 
+## Pestaña Totales (gastos del mes)
+
+Disponible solo si la cuenta tiene **Blanco y Negro** habilitados a la vez.
+
+Muestra cada categoría con el total **combinado** (Blanco + Negro) y, debajo en texto secundario, el desglose por cuenta.
+
+No permite registrar gastos, ni abrir el detalle de movimientos. El usuario debe usar las pestañas Blanco o Negro para eso.
+
+Los totales por categoría deben seguir cumpliendo las igualdades de consistencia: la suma de filas combinadas coincide con Total Gastado; la suma de la columna Blanco (resp. Negro) coincide con Total Blanco (resp. Negro).
+
 Los movimientos individuales existen únicamente para:
 
 Edición

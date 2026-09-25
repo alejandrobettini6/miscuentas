@@ -709,7 +709,9 @@ export function TripPanel({ onAllTripsClosed, onTripMerged }: TripPanelProps) {
           <div className="mt-4">
             <Tabs
               value={accountType}
-              onChange={setAccountType}
+              onChange={(value) => {
+                if (value !== 'TOTALS') setAccountType(value)
+              }}
               enabledAccounts={selectedTrip.enabledAccounts}
               disabled={locked}
             />
