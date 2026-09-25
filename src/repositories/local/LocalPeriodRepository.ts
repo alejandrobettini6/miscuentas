@@ -63,7 +63,10 @@ export class LocalPeriodRepository implements PeriodRepository {
       return this.ensureActive(userId, monthlyLimit)
     }
 
-    const closed = PeriodService.closePeriod(active)
+    const closed = {
+      ...PeriodService.closePeriod(active),
+      monthlyLimitSnapshot: monthlyLimit,
+    }
     // Si el mes siguiente ya fue creado por adelantado (createNextPeriod),
     // lo reutilizamos en vez de duplicarlo.
     const targetYearMonth = nextYearMonth(active.yearMonth)
@@ -109,7 +112,10 @@ export class LocalPeriodRepository implements PeriodRepository {
     if (active.yearMonth === currentKey) return active
 
     const periods = await this.list(userId)
-    const closed = PeriodService.closePeriod(active)
+    const closed = {
+      ...PeriodService.closePeriod(active),
+      monthlyLimitSnapshot: monthlyLimit,
+    }
     const existingCurrent = periods.find((p) => p.yearMonth === currentKey)
 
     let next: Period

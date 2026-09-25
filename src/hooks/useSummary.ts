@@ -7,11 +7,15 @@ import { SummaryCalculator } from '@/services/SummaryCalculator'
 import { Currency, type AccountType } from '@/types/enums'
 import type { Expense } from '@/types/models'
 
-export function useSummary(expenses: Expense[], accountType: AccountType) {
+export function useSummary(
+  expenses: Expense[],
+  accountType: AccountType,
+  monthlyLimitOverride?: number | null,
+) {
   const { settings } = useSettingsContext()
 
   return useMemo(() => {
-    const monthlyLimit = settings?.monthlyLimit ?? 0
+    const monthlyLimit = monthlyLimitOverride ?? settings?.monthlyLimit ?? 0
     const customCategories = settings?.customCategories ?? []
     const enabledFixed = settings?.enabledFixedCategories ?? FIXED_CATEGORIES
     const accountingCurrency = settings
@@ -49,5 +53,6 @@ export function useSummary(expenses: Expense[], accountType: AccountType) {
     expenses,
     settings,
     accountType,
+    monthlyLimitOverride,
   ])
 }

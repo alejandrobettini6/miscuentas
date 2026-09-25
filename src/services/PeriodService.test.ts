@@ -22,6 +22,18 @@ describe('PeriodService', () => {
     expect(next.monthlyLimitSnapshot).toBe(1500)
   })
 
+  it('congela el límite vigente en el período cerrado', () => {
+    const active = PeriodService.buildPeriod('u', '2026-07', {
+      monthlyLimitSnapshot: 1000,
+    })
+    const closed = {
+      ...PeriodService.closePeriod(active),
+      monthlyLimitSnapshot: 1200,
+    }
+    expect(closed.status).toBe(PeriodStatus.CLOSED)
+    expect(closed.monthlyLimitSnapshot).toBe(1200)
+  })
+
   it('findOrBuildForYearMonth reutiliza un período existente en vez de duplicarlo', () => {
     const existing = PeriodService.buildPeriod('u', '2026-08', {
       status: PeriodStatus.ACTIVE,

@@ -36,6 +36,10 @@ export class SummaryCalculator {
     if (monthlyLimit <= 0) return available < 0 ? 0 : 1
     return Math.max(0, Math.min(1, available / monthlyLimit))
   }
+
+  static exceededAmount(totalSpent: number, monthlyLimit: number): number {
+    return Math.max(0, round(totalSpent - monthlyLimit))
+  }
 }
 
 function sumByAccount(
