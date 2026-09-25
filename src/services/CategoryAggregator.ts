@@ -1,6 +1,6 @@
 import { CATEGORY_LABELS, FIXED_CATEGORIES } from '@/constants/categories'
 import { AccountType, Category, Currency } from '@/types/enums'
-import type { CategoryRow, Expense } from '@/types/models'
+import type { CategoryRow, CombinedCategoryRow, Expense } from '@/types/models'
 import { accountingAmount, type ExchangeRates } from './AccountingCurrency'
 
 export class CategoryAggregator {
@@ -72,6 +72,79 @@ export class CategoryAggregator {
 
     grandesRows.sort((a, b) => b.totalUsd - a.totalUsd)
     return [...rows, ...grandesRows]
+  }
+
+  /** Filas por categoría con totales Blanco, Negro y combinado (vista Totales). */
+  static buildCombinedRows(
+    expenses: Expense[],
+    customCategories: string[] = [],
+    enabledFixedCategories: Category[] = FIXED_CATEGORIES,
+    accountingCurrency: Currency = Currency.USD,
+    rates: ExchangeRates = { usdWhite: 1, usdCash: 1 },
+  ): CombinedCategoryRow[] {
+    const whiteRows = this.buildRows(
+      expenses,
+      AccountType.WHITE,
+      customCategories,
+      enabledFixedCategories,
+      accountingCurrency,
+      rates,
+    )
+    const cashRows = this.buildRows(
+      expenses,
+      AccountType.CASH,
+      customCategories,
+      enabledFixedCategories,
+      accountingCurrency,
+      rates,
+    )
+
+    const byKey = new Map<string, CombinedCategoryRow>()
+
+    const ensure = (row: CategoryRow) => {
+      const key = combinedRowKey(row)
+      if (byKey.has(key)) return
+      const { totalWhite, totalCash } = this.accountTotalsForRow(
+        expenses,
+        row,
+        accountingCurrency,
+        rates,
+        customCategories,
+      )
+      byKey.set(key, {
+        category: row.category,
+        description: row.description,
+        label: row.label,
+        isOtrosGrande: row.isOtrosGrande,
+        totalWhite,
+        totalCash,
+        totalCombined: round(totalWhite + totalCash),
+      })
+    }
+
+    for (const row of whiteRows) ensure(row)
+    for (const row of cashRows) ensure(row)
+
+    const fixedOrder: CombinedCategoryRow[] = []
+    const seenFixed = new Set<string>()
+    const appendFixed = (rows: CategoryRow[]) => {
+      for (const row of rows) {
+        if (row.isOtrosGrande) continue
+        const key = combinedRowKey(row)
+        if (seenFixed.has(key)) continue
+        seenFixed.add(key)
+        const combined = byKey.get(key)
+        if (combined) fixedOrder.push(combined)
+      }
+    }
+    appendFixed(whiteRows)
+    appendFixed(cashRows)
+
+    const grandes = [...byKey.values()]
+      .filter((r) => r.isOtrosGrande)
+      .sort((a, b) => b.totalCombined - a.totalCombined)
+
+    return [...fixedOrder, ...grandes]
   }
 
   /** Gastos de una fila de categoría (cuenta activa). */
@@ -195,6 +268,12 @@ function matchesRow(
     }
   }
   return true
+}
+
+function combinedRowKey(
+  row: Pick<CategoryRow, 'category' | 'description' | 'isOtrosGrande'>,
+): string {
+  return `${row.category}:${row.description ?? ''}:${row.isOtrosGrande ? '1' : '0'}`
 }
 
 function buildFixedRow(

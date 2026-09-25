@@ -91,6 +91,17 @@ export interface CategoryRow {
   isOtrosGrande: boolean
 }
 
+/** Fila consolidada Blanco + Negro (pestaña Totales). */
+export interface CombinedCategoryRow {
+  category: Category
+  description: string | null
+  label: string
+  isOtrosGrande: boolean
+  totalCombined: number
+  totalWhite: number
+  totalCash: number
+}
+
 export interface MonthlySummary {
   totalWhite: number
   totalCash: number

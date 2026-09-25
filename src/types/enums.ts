@@ -61,6 +61,15 @@ export enum ViewMode {
   TRIPS = 'TRIPS',
 }
 
+/** Pestaña de gastos: Blanco, Negro o vista consolidada Totales. */
+export type ExpenseAccountView = AccountType | 'TOTALS'
+
+export function isTotalsExpenseView(
+  view: ExpenseAccountView,
+): view is 'TOTALS' {
+  return view === 'TOTALS'
+}
+
 export enum TripStatus {
   ACTIVE = 'ACTIVE',
   CLOSED = 'CLOSED',

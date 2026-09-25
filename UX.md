@@ -191,15 +191,28 @@ Nunca utilizar otros colores.
 
 # Tabs
 
-Dos tabs.
+Dos tabs (tres si Blanco y Negro están activos).
 
 Blanco
 Barrani
+Totales (solo lectura; solo con Blanco y Negro)
 Siempre visibles.
 Nunca scroll horizontal.
 Al cambiar:
 No cambiar de pantalla.
 Simplemente actualizar categorías.
+
+## Totales
+
+Tercer tab cuando el usuario usa Blanco y Negro.
+
+Lista de categorías igual que en las otras pestañas, pero cada fila muestra el monto principal como suma de ambas cuentas y una línea gris: «Blanco … · Negro …».
+
+Sin botones de acción en la fila. Texto fijo arriba de la lista:
+
+«Totales por categoría. La suma incluye Blanco y Negro. Para cargar gastos o ver movimientos, elegí la pestaña Blanco o Negro.»
+
+Búsqueda: solo por nombre de categoría (no por movimientos individuales).
 
 ---
 
