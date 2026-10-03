@@ -4,6 +4,7 @@ import { Currency } from '@/types/enums'
 import type { CategoryRow as CategoryRowModel } from '@/types/models'
 import { accountingAmount, type ExchangeRates } from '@/services/AccountingCurrency'
 import { formatLastMovementDelta, formatMoneyLabel } from '@/utils/formatters'
+import { CategoryRowLabel } from '@/components/expenses/CategoryRowLabel'
 
 interface CategoryRowProps {
   row: CategoryRowModel
@@ -62,7 +63,7 @@ function CategoryRowComponent({
         aria-label={`Registrar en ${row.label}`}
       >
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-lg font-medium">{row.label}</span>
+          <CategoryRowLabel row={row} />
           <span className="text-lg font-semibold tabular-nums">
             {formatMoneyLabel(row.totalUsd, accountingCurrency)}
           </span>

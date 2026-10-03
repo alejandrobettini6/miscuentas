@@ -8,6 +8,7 @@ import {
   type ExchangeRates,
 } from '@/services/AccountingCurrency'
 import { formatLastMovementDelta, formatMoneyLabel } from '@/utils/formatters'
+import { CategoryRowLabel } from '@/components/expenses/CategoryRowLabel'
 
 interface ExpenseSearchResultRowProps {
   result: ExpenseSearchResult
@@ -75,7 +76,7 @@ function ExpenseSearchResultRowComponent({
         }
       >
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-lg font-medium">{row.label}</span>
+          <CategoryRowLabel row={row} />
           <span className="text-lg font-semibold tabular-nums">
             {formatMoneyLabel(displayAmount, accountingCurrency)}
           </span>

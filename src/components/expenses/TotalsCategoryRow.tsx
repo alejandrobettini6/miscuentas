@@ -3,6 +3,7 @@ import { ACCOUNT_LABELS } from '@/constants/categories'
 import { AccountType, Currency } from '@/types/enums'
 import type { CombinedCategoryRow } from '@/types/models'
 import { formatMoneyLabel } from '@/utils/formatters'
+import { CategoryRowLabel } from '@/components/expenses/CategoryRowLabel'
 
 const HIDDEN_PLACEHOLDER = '••••••'
 
@@ -27,7 +28,7 @@ function TotalsCategoryRowComponent({
       aria-label={`${row.label}, total ${money(row.totalCombined)}`}
     >
       <div className="flex items-baseline justify-between gap-3 px-1">
-        <span className="text-lg font-medium">{row.label}</span>
+        <CategoryRowLabel row={row} />
         <span className="text-lg font-semibold tabular-nums">
           {money(row.totalCombined)}
         </span>

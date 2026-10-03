@@ -24,6 +24,33 @@ export const TRIP_CATEGORY_LABELS: Record<TripCategoryId, string> = {
   FARMACIA: 'Farmacia / Salud',
 }
 
+export const TRIP_CATEGORY_EMOJIS: Record<TripCategoryId, string> = {
+  VUELO: '✈️',
+  HOTEL: '🏨',
+  COMIDA: '🍽️',
+  TRANSPORTE: '🚌',
+  SALIDAS: '🍸',
+  EXCURSIONES: '🗺️',
+  SOUVENIRS: '🎁',
+  SEGUROS: '🛡️',
+  FARMACIA: '💊',
+}
+
+const TRIP_OTHER_EMOJI = '📦'
+const TRIP_CUSTOM_CATEGORY_EMOJI = '🏷️'
+
+export function getTripCategoryEmoji(row: {
+  category: string
+  isOtrosGrande: boolean
+}): string {
+  if (row.isOtrosGrande) return TRIP_CUSTOM_CATEGORY_EMOJI
+  if (row.category === TRIP_OTHER_CATEGORY) return TRIP_OTHER_EMOJI
+  if (row.category in TRIP_CATEGORY_EMOJIS) {
+    return TRIP_CATEGORY_EMOJIS[row.category as TripCategoryId]
+  }
+  return TRIP_OTHER_EMOJI
+}
+
 export const TRIP_OTHER_CATEGORY = 'OTHER'
 
 export function getTripCategoryLabel(category: string): string {

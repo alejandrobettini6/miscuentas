@@ -40,6 +40,44 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   [Category.OTHER]: 'Otros',
 }
 
+export const CATEGORY_EMOJIS: Record<Category, string> = {
+  [Category.SUPER]: '🛒',
+  [Category.DELIVERY]: '🍔',
+  [Category.AUTO]: '🚗',
+  [Category.SALUD]: '💊',
+  [Category.SERVICIOS]: '💡',
+  [Category.NINA]: '🐾',
+  [Category.SALIDAS]: '🍻',
+  [Category.PELO]: '💇',
+  [Category.GYM]: '💪',
+  [Category.LIMPIEZA]: '🧹',
+  [Category.TAXES]: '🧾',
+  [Category.REFUNDS]: '↩️',
+  [Category.OTHER]: '📦',
+}
+
+export const TRIP_MERGED_CATEGORY_EMOJI = '✈️'
+
+function isTripMergedCategoryLabel(label: string): boolean {
+  return label.trim().startsWith('Viaje ')
+}
+
+export function getCategoryEmoji(row: {
+  category: Category
+  isOtrosGrande: boolean
+  label?: string
+  description?: string | null
+}): string {
+  if (row.category === Category.OTHER && row.isOtrosGrande) {
+    const tripName = (row.description ?? row.label ?? '').trim()
+    if (isTripMergedCategoryLabel(tripName) || isTripMergedCategoryLabel(row.label ?? '')) {
+      return TRIP_MERGED_CATEGORY_EMOJI
+    }
+    return '🏷️'
+  }
+  return CATEGORY_EMOJIS[row.category]
+}
+
 export const ACCOUNT_LABELS: Record<AccountType, string> = {
   [AccountType.WHITE]: 'Blanco',
   [AccountType.CASH]: 'Negro',
