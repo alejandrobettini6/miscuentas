@@ -24,6 +24,19 @@
   --warn-text: #856404;
   --info-bg: #e8f0fe;
   --danger-bg: #ffe5e5;
+  --cat-super: #34c759;
+  --cat-delivery: #ff9500;
+  --cat-auto: #007aff;
+  --cat-salud: #ff2d55;
+  --cat-servicios: #ffcc00;
+  --cat-nina: #af52de;
+  --cat-salidas: #5856d6;
+  --cat-pelo: #ff6482;
+  --cat-gym: #30b0c7;
+  --cat-limpieza: #64d2ff;
+  --cat-taxes: #8e8e93;
+  --cat-refunds: #5ac8fa;
+  --cat-other: #a2845e;
 }
 
 :root[data-theme='dark'] {
@@ -50,6 +63,19 @@
   --warn-text: #ffd60a;
   --info-bg: #0a2540;
   --danger-bg: #3a1a1a;
+  --cat-super: #30d158;
+  --cat-delivery: #ff9f0a;
+  --cat-auto: #0a84ff;
+  --cat-salud: #ff375f;
+  --cat-servicios: #ffd60a;
+  --cat-nina: #bf5af2;
+  --cat-salidas: #5e5ce6;
+  --cat-pelo: #ff6482;
+  --cat-gym: #40c8e0;
+  --cat-limpieza: #64d2ff;
+  --cat-taxes: #98989f;
+  --cat-refunds: #64d2ff;
+  --cat-other: #ac8e68;
 }
 
 * {

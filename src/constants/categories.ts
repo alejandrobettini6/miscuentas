@@ -56,7 +56,61 @@ export const CATEGORY_EMOJIS: Record<Category, string> = {
   [Category.OTHER]: '📦',
 }
 
+/** Colores estables para gráficos; no reordenar el enum Category. */
+export const CATEGORY_CHART_COLORS: Record<Category, string> = {
+  [Category.SUPER]: 'var(--cat-super)',
+  [Category.DELIVERY]: 'var(--cat-delivery)',
+  [Category.AUTO]: 'var(--cat-auto)',
+  [Category.SALUD]: 'var(--cat-salud)',
+  [Category.SERVICIOS]: 'var(--cat-servicios)',
+  [Category.NINA]: 'var(--cat-nina)',
+  [Category.SALIDAS]: 'var(--cat-salidas)',
+  [Category.PELO]: 'var(--cat-pelo)',
+  [Category.GYM]: 'var(--cat-gym)',
+  [Category.LIMPIEZA]: 'var(--cat-limpieza)',
+  [Category.TAXES]: 'var(--cat-taxes)',
+  [Category.REFUNDS]: 'var(--cat-refunds)',
+  [Category.OTHER]: 'var(--cat-other)',
+}
+
+/** Paleta para categorías personalizadas (hash estable sobre el nombre). */
+export const CUSTOM_CATEGORY_CHART_COLORS = [
+  '#5856d6',
+  '#af52de',
+  '#ff2d55',
+  '#5ac8fa',
+  '#ff6482',
+  '#64d2ff',
+  '#bf5af2',
+  '#32ade6',
+] as const
+
+export const REST_SLICE_CHART_COLOR = 'var(--muted)'
+
 export const TRIP_MERGED_CATEGORY_EMOJI = '✈️'
+
+function hashLabel(label: string): number {
+  let h = 0
+  const s = label.trim().toLowerCase()
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0
+  }
+  return Math.abs(h)
+}
+
+export function resolveCategoryChartColor(row: {
+  category: Category
+  isOtrosGrande: boolean
+  label: string
+  chartKey?: string
+}): string {
+  if (row.chartKey === '__rest__') return REST_SLICE_CHART_COLOR
+  if (row.category === Category.OTHER && row.isOtrosGrande) {
+    const idx = hashLabel(row.label) % CUSTOM_CATEGORY_CHART_COLORS.length
+    return CUSTOM_CATEGORY_CHART_COLORS[idx]!
+  }
+  return CATEGORY_CHART_COLORS[row.category]
+}
 
 function isTripMergedCategoryLabel(label: string): boolean {
   return label.trim().startsWith('Viaje ')

@@ -1,11 +1,20 @@
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { ACCOUNT_LABELS } from '@/constants/categories'
-import { AccountType, BudgetColor, Currency, SummaryDisplayMode } from '@/types/enums'
+import {
+  AccountType,
+  BudgetColor,
+  Currency,
+  SummaryDisplayMode,
+  type ExpenseAccountView,
+  isTotalsExpenseView,
+} from '@/types/enums'
 import type { MonthlySummary } from '@/types/models'
+import type { CategoryChartSlice } from '@/services/CategoryChartData'
 import { formatMoneyLabel, formatPercent } from '@/utils/formatters'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { PeriodLimitSummary } from '@/components/summary/PeriodLimitSummary'
+import { CategorySpendingPieChart } from '@/components/summary/CategorySpendingPieChart'
 
 const HIDDEN_PLACEHOLDER = '••••••'
 
@@ -27,6 +36,8 @@ interface MonthlySummaryCardProps {
   onToggleAmounts?: () => void
   isClosed?: boolean
   monthlyLimit?: number
+  expenseAccountView?: ExpenseAccountView
+  categoryChartSlices?: CategoryChartSlice[]
 }
 
 function MonthlySummaryCardComponent({
@@ -40,8 +51,11 @@ function MonthlySummaryCardComponent({
   onToggleAmounts,
   isClosed = false,
   monthlyLimit = 0,
+  expenseAccountView = AccountType.WHITE,
+  categoryChartSlices = [],
 }: MonthlySummaryCardProps) {
   const showAccountBreakdown = enabledAccounts.length === 2
+  const isTotalsTab = isTotalsExpenseView(expenseAccountView)
 
   const money = (amount: number) =>
     amountsHidden ? HIDDEN_PLACEHOLDER : formatMoneyLabel(amount, accountingCurrency)
@@ -49,7 +63,7 @@ function MonthlySummaryCardComponent({
   const visibilityToggle = onToggleAmounts && (
     <button
       type="button"
-      className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--muted)] active:bg-[var(--press)]"
+      className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl text-[var(--muted)] active:bg-[var(--press)]"
       aria-label={amountsHidden ? 'Mostrar totales' : 'Ocultar totales'}
       aria-pressed={amountsHidden}
       onClick={onToggleAmounts}
@@ -58,38 +72,56 @@ function MonthlySummaryCardComponent({
     </button>
   )
 
-  if (displayMode === SummaryDisplayMode.TOTAL) {
-    return (
-      <section className="rounded-2xl bg-[var(--surface)] p-5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm text-[var(--muted)]">Total gastado este mes</p>
-          {visibilityToggle}
-        </div>
-        <p className="mt-1 text-4xl font-bold tabular-nums text-[var(--text)]">
-          {money(summary.totalSpent)}
-        </p>
-
-        {showAccountBreakdown && (
-          <div className="mt-4 space-y-1 text-sm text-[var(--muted)]">
-            {enabledAccounts.includes(AccountType.WHITE) && (
-              <p>
-                {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
-                <span className="font-semibold text-[var(--text)]">
-                  {money(summary.totalWhite)}
-                </span>
-              </p>
-            )}
-            {enabledAccounts.includes(AccountType.CASH) && (
-              <p>
-                {ACCOUNT_LABELS[AccountType.CASH]}{' '}
-                <span className="font-semibold text-[var(--text)]">
-                  {money(summary.totalCash)}
-                </span>
-              </p>
-            )}
-          </div>
+  const limitAccountBreakdown =
+    enabledAccounts.length > 0 ? (
+      <div className="mt-4 space-y-1 text-sm text-[var(--muted)]">
+        {enabledAccounts.includes(AccountType.WHITE) && (
+          <p>
+            {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
+            <span className="font-semibold text-[var(--text)]">
+              {money(summary.totalWhite)}
+            </span>
+          </p>
         )}
-      </section>
+        {enabledAccounts.includes(AccountType.CASH) && (
+          <p>
+            {ACCOUNT_LABELS[AccountType.CASH]}{' '}
+            <span className="font-semibold text-[var(--text)]">
+              {money(summary.totalCash)}
+            </span>
+          </p>
+        )}
+      </div>
+    ) : null
+
+  const totalModeAccountBreakdown = showAccountBreakdown ? limitAccountBreakdown : null
+
+  const wrapWithChart = (main: ReactNode, headerRow: ReactNode, footer?: ReactNode) => (
+    <section className="rounded-2xl bg-[var(--surface)] p-5">
+      {headerRow}
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0 flex-1">{main}</div>
+        {!isTotalsTab && (
+          <CategorySpendingPieChart slices={categoryChartSlices} size="compact" />
+        )}
+      </div>
+      {footer}
+      {isTotalsTab && (
+        <CategorySpendingPieChart slices={categoryChartSlices} size="large" />
+      )}
+    </section>
+  )
+
+  if (displayMode === SummaryDisplayMode.TOTAL) {
+    return wrapWithChart(
+      <p className="mt-1 text-4xl font-bold tabular-nums text-[var(--text)]">
+        {money(summary.totalSpent)}
+      </p>,
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-[var(--muted)]">Total gastado este mes</p>
+        {visibilityToggle}
+      </div>,
+      totalModeAccountBreakdown,
     )
   }
 
@@ -102,41 +134,25 @@ function MonthlySummaryCardComponent({
             monthlyLimit={monthlyLimit}
             accountingCurrency={accountingCurrency}
             amountsHidden={amountsHidden}
-            className="flex-1"
+            className="min-w-0 flex-1"
           />
           {visibilityToggle}
         </div>
-
-        {enabledAccounts.length > 0 && (
-          <div className="mt-4 space-y-1 text-sm text-[var(--muted)]">
-            {enabledAccounts.includes(AccountType.WHITE) && (
-              <p>
-                {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
-                <span className="font-semibold text-[var(--text)]">
-                  {money(summary.totalWhite)}
-                </span>
-              </p>
-            )}
-            {enabledAccounts.includes(AccountType.CASH) && (
-              <p>
-                {ACCOUNT_LABELS[AccountType.CASH]}{' '}
-                <span className="font-semibold text-[var(--text)]">
-                  {money(summary.totalCash)}
-                </span>
-              </p>
-            )}
+        {!isTotalsTab && (
+          <div className="mt-3 flex justify-end">
+            <CategorySpendingPieChart slices={categoryChartSlices} size="compact" />
           </div>
+        )}
+        {limitAccountBreakdown}
+        {isTotalsTab && (
+          <CategorySpendingPieChart slices={categoryChartSlices} size="large" />
         )}
       </section>
     )
   }
 
-  return (
-    <section className="rounded-2xl bg-[var(--surface)] p-5">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-[var(--muted)]">Disponible este mes</p>
-        {visibilityToggle}
-      </div>
+  return wrapWithChart(
+    <>
       <p className={`mt-1 text-4xl font-bold tabular-nums ${TEXT_COLORS[color]}`}>
         {money(summary.available)}
       </p>
@@ -155,28 +171,12 @@ function MonthlySummaryCardComponent({
           {money(summary.totalSpent)}
         </span>
       </p>
-
-      {enabledAccounts.length > 0 && (
-        <div className="mt-2 space-y-1 text-sm text-[var(--muted)]">
-          {enabledAccounts.includes(AccountType.WHITE) && (
-            <p>
-              {ACCOUNT_LABELS[AccountType.WHITE]}{' '}
-              <span className="font-semibold text-[var(--text)]">
-                {money(summary.totalWhite)}
-              </span>
-            </p>
-          )}
-          {enabledAccounts.includes(AccountType.CASH) && (
-            <p>
-              {ACCOUNT_LABELS[AccountType.CASH]}{' '}
-              <span className="font-semibold text-[var(--text)]">
-                {money(summary.totalCash)}
-              </span>
-            </p>
-          )}
-        </div>
-      )}
-    </section>
+    </>,
+    <div className="flex items-center justify-between gap-2">
+      <p className="text-sm text-[var(--muted)]">Disponible este mes</p>
+      {visibilityToggle}
+    </div>,
+    limitAccountBreakdown,
   )
 }
 
