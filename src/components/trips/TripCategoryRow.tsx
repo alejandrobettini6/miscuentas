@@ -4,6 +4,7 @@ import { Currency } from '@/types/enums'
 import type { TripCategoryRow as TripCategoryRowModel, TripExpense } from '@/types/models'
 import { accountingAmountFromRecord, type ExchangeRates } from '@/services/AccountingCurrency'
 import { formatLastMovementDelta, formatMoneyLabel } from '@/utils/formatters'
+import { TripCategoryRowLabel } from '@/components/trips/TripCategoryRowLabel'
 
 interface TripCategoryRowProps {
   row: TripCategoryRowModel
@@ -51,7 +52,7 @@ function TripCategoryRowComponent({
         aria-label={`Registrar en ${row.label}`}
       >
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-lg font-medium">{row.label}</span>
+          <TripCategoryRowLabel row={row} />
           <span className="text-lg font-semibold tabular-nums">
             {formatMoneyLabel(row.totalUsd, accountingCurrency)}
           </span>

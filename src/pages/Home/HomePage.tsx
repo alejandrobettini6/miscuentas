@@ -72,6 +72,7 @@ import { useSummary } from '@/hooks/useSummary'
 import { useTrips } from '@/hooks/useTrips'
 import { getTripRepository } from '@/repositories'
 import { CategoryAggregator } from '@/services/CategoryAggregator'
+import { buildCategoryChartSlices } from '@/services/CategoryChartData'
 import { ExpenseSearchService } from '@/services/ExpenseSearchService'
 import {
   collectMergedExpenseIds,
@@ -299,6 +300,29 @@ export function HomePage() {
     accountingCurrency,
     rates,
   ])
+
+  const categoryChartSlices = useMemo(() => {
+    if (isTotalsView) {
+      return buildCategoryChartSlices(
+        combinedRows.map((row) => ({
+          label: row.label,
+          category: row.category,
+          description: row.description,
+          isOtrosGrande: row.isOtrosGrande,
+          amount: row.totalCombined,
+        })),
+      )
+    }
+    return buildCategoryChartSlices(
+      rows.map((row) => ({
+        label: row.label,
+        category: row.category,
+        description: row.description,
+        isOtrosGrande: row.isOtrosGrande,
+        amount: row.totalUsd,
+      })),
+    )
+  }, [isTotalsView, combinedRows, rows])
 
   const activeSearchKey: AccountType | 'TOTALS' = isTotalsView
     ? 'TOTALS'
@@ -1001,6 +1025,8 @@ export function HomePage() {
         onToggleAmounts={toggleAmountsHidden}
         isClosed={isReadOnly}
         monthlyLimit={periodLimit ?? settings?.monthlyLimit ?? 0}
+        expenseAccountView={expenseAccountView}
+        categoryChartSlices={categoryChartSlices}
       />
 
       <div className="mt-4">

@@ -40,6 +40,98 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   [Category.OTHER]: 'Otros',
 }
 
+export const CATEGORY_EMOJIS: Record<Category, string> = {
+  [Category.SUPER]: '🛒',
+  [Category.DELIVERY]: '🍔',
+  [Category.AUTO]: '🚗',
+  [Category.SALUD]: '💊',
+  [Category.SERVICIOS]: '💡',
+  [Category.NINA]: '🐾',
+  [Category.SALIDAS]: '🍻',
+  [Category.PELO]: '💇',
+  [Category.GYM]: '💪',
+  [Category.LIMPIEZA]: '🧹',
+  [Category.TAXES]: '🧾',
+  [Category.REFUNDS]: '↩️',
+  [Category.OTHER]: '📦',
+}
+
+/** Colores estables para gráficos; no reordenar el enum Category. */
+export const CATEGORY_CHART_COLORS: Record<Category, string> = {
+  [Category.SUPER]: 'var(--cat-super)',
+  [Category.DELIVERY]: 'var(--cat-delivery)',
+  [Category.AUTO]: 'var(--cat-auto)',
+  [Category.SALUD]: 'var(--cat-salud)',
+  [Category.SERVICIOS]: 'var(--cat-servicios)',
+  [Category.NINA]: 'var(--cat-nina)',
+  [Category.SALIDAS]: 'var(--cat-salidas)',
+  [Category.PELO]: 'var(--cat-pelo)',
+  [Category.GYM]: 'var(--cat-gym)',
+  [Category.LIMPIEZA]: 'var(--cat-limpieza)',
+  [Category.TAXES]: 'var(--cat-taxes)',
+  [Category.REFUNDS]: 'var(--cat-refunds)',
+  [Category.OTHER]: 'var(--cat-other)',
+}
+
+/** Paleta para categorías personalizadas (hash estable sobre el nombre). */
+export const CUSTOM_CATEGORY_CHART_COLORS = [
+  'var(--cat-custom-0)',
+  'var(--cat-custom-1)',
+  'var(--cat-custom-2)',
+  'var(--cat-custom-3)',
+  'var(--cat-custom-4)',
+  'var(--cat-custom-5)',
+  'var(--cat-custom-6)',
+  'var(--cat-custom-7)',
+] as const
+
+export const REST_SLICE_CHART_COLOR = 'var(--cat-rest)'
+
+export const TRIP_MERGED_CATEGORY_EMOJI = '✈️'
+
+function hashLabel(label: string): number {
+  let h = 0
+  const s = label.trim().toLowerCase()
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0
+  }
+  return Math.abs(h)
+}
+
+export function resolveCategoryChartColor(row: {
+  category: Category
+  isOtrosGrande: boolean
+  label: string
+  chartKey?: string
+}): string {
+  if (row.chartKey === '__rest__') return REST_SLICE_CHART_COLOR
+  if (row.category === Category.OTHER && row.isOtrosGrande) {
+    const idx = hashLabel(row.label) % CUSTOM_CATEGORY_CHART_COLORS.length
+    return CUSTOM_CATEGORY_CHART_COLORS[idx]!
+  }
+  return CATEGORY_CHART_COLORS[row.category]
+}
+
+function isTripMergedCategoryLabel(label: string): boolean {
+  return label.trim().startsWith('Viaje ')
+}
+
+export function getCategoryEmoji(row: {
+  category: Category
+  isOtrosGrande: boolean
+  label?: string
+  description?: string | null
+}): string {
+  if (row.category === Category.OTHER && row.isOtrosGrande) {
+    const tripName = (row.description ?? row.label ?? '').trim()
+    if (isTripMergedCategoryLabel(tripName) || isTripMergedCategoryLabel(row.label ?? '')) {
+      return TRIP_MERGED_CATEGORY_EMOJI
+    }
+    return '🏷️'
+  }
+  return CATEGORY_EMOJIS[row.category]
+}
+
 export const ACCOUNT_LABELS: Record<AccountType, string> = {
   [AccountType.WHITE]: 'Blanco',
   [AccountType.CASH]: 'Negro',
