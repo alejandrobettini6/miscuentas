@@ -10,8 +10,8 @@ interface CategorySpendingPieChartProps {
 }
 
 const SIZE = {
-  compact: { diameter: 80, stroke: 0 },
-  large: { diameter: 152, stroke: 0 },
+  compact: { diameter: 96, stroke: 0 },
+  large: { diameter: 172, stroke: 0 },
 } as const
 
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
@@ -22,20 +22,51 @@ function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
   }
 }
 
-function describeArc(
+/** Radio interior del donut (proporción del exterior). */
+const DONUT_INNER_RATIO = 0.58
+
+/** Separación angular entre segmentos (grados). */
+const SEGMENT_GAP_DEG = 1.4
+
+function describeDonutSegment(
   cx: number,
   cy: number,
-  r: number,
+  rOuter: number,
+  rInner: number,
   startAngle: number,
   endAngle: number,
 ): string {
-  const start = polarToCartesian(cx, cy, r, endAngle)
-  const end = polarToCartesian(cx, cy, r, startAngle)
+  const startOuter = polarToCartesian(cx, cy, rOuter, endAngle)
+  const endOuter = polarToCartesian(cx, cy, rOuter, startAngle)
+  const startInner = polarToCartesian(cx, cy, rInner, startAngle)
+  const endInner = polarToCartesian(cx, cy, rInner, endAngle)
   const largeArc = endAngle - startAngle <= 180 ? 0 : 1
   return [
-    `M ${cx} ${cy}`,
-    `L ${start.x} ${start.y}`,
-    `A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y}`,
+    `M ${startOuter.x} ${startOuter.y}`,
+    `A ${rOuter} ${rOuter} 0 ${largeArc} 0 ${endOuter.x} ${endOuter.y}`,
+    `L ${startInner.x} ${startInner.y}`,
+    `A ${rInner} ${rInner} 0 ${largeArc} 1 ${endInner.x} ${endInner.y}`,
+    'Z',
+  ].join(' ')
+}
+
+function describeFullDonutRing(
+  cx: number,
+  cy: number,
+  rOuter: number,
+  rInner: number,
+): string {
+  const rightOuter = polarToCartesian(cx, cy, rOuter, 0)
+  const leftOuter = polarToCartesian(cx, cy, rOuter, 180)
+  const rightInner = polarToCartesian(cx, cy, rInner, 0)
+  const leftInner = polarToCartesian(cx, cy, rInner, 180)
+  return [
+    `M ${rightOuter.x} ${rightOuter.y}`,
+    `A ${rOuter} ${rOuter} 0 1 1 ${leftOuter.x} ${leftOuter.y}`,
+    `A ${rOuter} ${rOuter} 0 1 1 ${rightOuter.x} ${rightOuter.y}`,
+    `M ${rightInner.x} ${rightInner.y}`,
+    `A ${rInner} ${rInner} 0 1 0 ${leftInner.x} ${leftInner.y}`,
+    `A ${rInner} ${rInner} 0 1 0 ${rightInner.x} ${rightInner.y}`,
     'Z',
   ].join(' ')
 }
@@ -46,10 +77,42 @@ function buildAriaLabel(slices: CategoryChartSlice[]): string {
     .join(', ')
 }
 
+const DONUT_SLICE_STROKE = 'var(--surface)'
+
+function donutRadii(diameter: number) {
+  const rOuter = diameter / 2 - 1
+  const rInner = rOuter * DONUT_INNER_RATIO
+  return { rOuter, rInner }
+}
+
+function EmptyDonutSvg({ diameter }: { diameter: number }) {
+  const cx = diameter / 2
+  const cy = diameter / 2
+  const { rOuter, rInner } = donutRadii(diameter)
+  const rMid = (rOuter + rInner) / 2
+  const ringWidth = rOuter - rInner
+  return (
+    <svg width={diameter} height={diameter} aria-hidden>
+      <circle
+        cx={cx}
+        cy={cy}
+        r={rMid}
+        fill="none"
+        stroke="var(--border)"
+        strokeWidth={ringWidth}
+        strokeDasharray="4 4"
+      />
+    </svg>
+  )
+}
+
 function PieSvg({ slices, diameter }: { slices: CategoryChartSlice[]; diameter: number }) {
   const cx = diameter / 2
   const cy = diameter / 2
-  const r = diameter / 2 - 1
+  const { rOuter, rInner } = donutRadii(diameter)
+  const strokeWidth = diameter >= 140 ? 2 : 1.5
+  const gap = slices.length > 1 ? SEGMENT_GAP_DEG : 0
+  const halfGap = gap / 2
   let cursor = 0
 
   return (
@@ -62,25 +125,31 @@ function PieSvg({ slices, diameter }: { slices: CategoryChartSlice[]; diameter: 
     >
       {slices.map((slice) => {
         const sweep = (slice.percent / 100) * 360
-        const start = cursor
-        const end = cursor + sweep
-        cursor = end
+        const start = cursor + halfGap
+        const end = cursor + sweep - halfGap
+        cursor += sweep
+
         if (slice.percent >= 99.95) {
           return (
-            <circle
+            <path
               key={slice.key}
-              cx={cx}
-              cy={cy}
-              r={r}
+              d={describeFullDonutRing(cx, cy, rOuter, rInner)}
               fill={slice.color}
+              fillRule="evenodd"
             />
           )
         }
+
+        if (end - start < 0.5) return null
+
         return (
           <path
             key={slice.key}
-            d={describeArc(cx, cy, r, start, end)}
+            d={describeDonutSegment(cx, cy, rOuter, rInner, start, end)}
             fill={slice.color}
+            stroke={DONUT_SLICE_STROKE}
+            strokeWidth={strokeWidth}
+            strokeLinejoin="round"
           />
         )
       })}
@@ -100,17 +169,17 @@ function LegendItem({ slice }: { slice: CategoryChartSlice }) {
         })
 
   return (
-    <li className="flex min-w-0 items-center gap-1.5 text-xs text-[var(--muted)]">
+    <li className="flex min-w-0 max-w-full items-center gap-1 text-[10px] leading-tight tracking-tight sm:text-[11px]">
       <span
-        className="size-2 shrink-0 rounded-full"
+        className="size-1.5 shrink-0 rounded-full ring-1 ring-[var(--border)]/60"
         style={{ backgroundColor: slice.color }}
         aria-hidden
       />
-      <span className="shrink-0" aria-hidden>
+      <span className="shrink-0 text-[10px] leading-none opacity-90" aria-hidden>
         {emoji}
       </span>
-      <span className="min-w-0 truncate text-[var(--text)]">{slice.label}</span>
-      <span className="ml-auto shrink-0 tabular-nums font-medium text-[var(--text)]">
+      <span className="min-w-0 truncate font-normal text-[var(--text)]">{slice.label}</span>
+      <span className="ml-auto shrink-0 tabular-nums font-medium text-[var(--muted)]">
         {formatPercent(slice.percent)}
       </span>
     </li>
@@ -127,24 +196,14 @@ function CategorySpendingPieChartComponent({
     return (
       <div
         className={`flex flex-col items-center justify-center gap-1 ${
-          size === 'compact' ? 'w-[80px]' : 'w-full'
+          size === 'compact' ? 'w-full' : 'w-full'
         }`}
         role="img"
         aria-label="Sin gastos para mostrar en el gráfico"
       >
-        <svg width={diameter} height={diameter} aria-hidden>
-          <circle
-            cx={diameter / 2}
-            cy={diameter / 2}
-            r={diameter / 2 - 2}
-            fill="none"
-            stroke="var(--border)"
-            strokeWidth={2}
-            strokeDasharray="4 4"
-          />
-        </svg>
+        <EmptyDonutSvg diameter={diameter} />
         {size === 'large' && (
-          <p className="text-center text-xs text-[var(--muted)]">Sin gastos para mostrar</p>
+          <p className="text-center text-[11px] text-[var(--muted)]">Sin gastos para mostrar</p>
         )}
       </div>
     )
@@ -155,12 +214,12 @@ function CategorySpendingPieChartComponent({
   if (size === 'compact') {
     return (
       <div
-        className="flex flex-col items-end gap-1.5"
+        className="flex w-full min-w-0 flex-col items-center gap-2 sm:items-end sm:gap-1"
         role="img"
         aria-label={ariaLabel}
       >
         <PieSvg slices={slices} diameter={diameter} />
-        <ul className="w-full max-w-[140px] space-y-0.5">
+        <ul className="grid w-full min-w-0 grid-cols-2 gap-x-3 gap-y-0.5 sm:grid-cols-1 sm:max-w-[176px]">
           {slices.map((slice) => (
             <LegendItem key={slice.key} slice={slice} />
           ))}
@@ -170,11 +229,17 @@ function CategorySpendingPieChartComponent({
   }
 
   return (
-    <div role="img" aria-label={ariaLabel} className="mt-4 border-t border-[var(--border)] pt-4">
-      <p className="mb-3 text-sm text-[var(--muted)]">Por categoría (mes completo)</p>
-      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-6">
+    <div
+      role="img"
+      aria-label={ariaLabel}
+      className="mt-3 border-t border-[var(--border)] pt-3 sm:mt-4 sm:pt-3.5"
+    >
+      <p className="mb-2 text-[11px] font-medium tracking-wide text-[var(--muted)]">
+        Por categoría (mes completo)
+      </p>
+      <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:gap-5">
         <PieSvg slices={slices} diameter={diameter} />
-        <ul className="grid w-full min-w-0 flex-1 grid-cols-1 gap-1.5 sm:grid-cols-2">
+        <ul className="grid w-full min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-0.5 sm:gap-1">
           {slices.map((slice) => (
             <LegendItem key={slice.key} slice={slice} />
           ))}

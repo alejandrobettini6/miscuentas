@@ -76,6 +76,6 @@ describe('buildCategoryChartSlices', () => {
         amount: 20,
       },
     ])
-    expect(slices[0]?.color).toMatch(/^#/)
+    expect(slices[0]?.color).toMatch(/^var\(--cat-custom-/)
   })
 })

@@ -75,17 +75,17 @@ export const CATEGORY_CHART_COLORS: Record<Category, string> = {
 
 /** Paleta para categorías personalizadas (hash estable sobre el nombre). */
 export const CUSTOM_CATEGORY_CHART_COLORS = [
-  '#5856d6',
-  '#af52de',
-  '#ff2d55',
-  '#5ac8fa',
-  '#ff6482',
-  '#64d2ff',
-  '#bf5af2',
-  '#32ade6',
+  'var(--cat-custom-0)',
+  'var(--cat-custom-1)',
+  'var(--cat-custom-2)',
+  'var(--cat-custom-3)',
+  'var(--cat-custom-4)',
+  'var(--cat-custom-5)',
+  'var(--cat-custom-6)',
+  'var(--cat-custom-7)',
 ] as const
 
-export const REST_SLICE_CHART_COLOR = 'var(--muted)'
+export const REST_SLICE_CHART_COLOR = 'var(--cat-rest)'
 
 export const TRIP_MERGED_CATEGORY_EMOJI = '✈️'
 

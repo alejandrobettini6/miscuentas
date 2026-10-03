@@ -10,6 +10,8 @@ interface PeriodLimitSummaryProps {
   accountingCurrency?: Currency
   amountsHidden?: boolean
   className?: string
+  /** Tipografía más chica para la card de resumen en Home. */
+  dense?: boolean
 }
 
 export function PeriodLimitSummary({
@@ -18,16 +20,21 @@ export function PeriodLimitSummary({
   accountingCurrency = Currency.USD,
   amountsHidden = false,
   className = '',
+  dense = false,
 }: PeriodLimitSummaryProps) {
   const exceeded = SummaryCalculator.exceededAmount(totalSpent, monthlyLimit)
   const money = (amount: number) =>
     amountsHidden ? HIDDEN_PLACEHOLDER : formatMoneyLabel(amount, accountingCurrency)
 
+  const labelClass = dense ? 'text-xs' : 'text-sm'
+  const amountClass = dense ? 'text-2xl sm:text-3xl' : 'text-4xl'
+  const detailClass = dense ? 'mt-2 text-sm' : 'mt-3 text-base'
+
   return (
     <div className={className}>
-      <p className="text-sm text-[var(--muted)]">Total gastado este mes</p>
+      <p className={`${labelClass} text-[var(--muted)]`}>Total gastado este mes</p>
       <p
-        className={`mt-1 text-4xl font-bold tabular-nums ${
+        className={`mt-0.5 ${amountClass} font-bold tabular-nums ${
           exceeded > 0 ? 'text-[var(--red)]' : 'text-[var(--text)]'
         }`}
       >
@@ -35,13 +42,13 @@ export function PeriodLimitSummary({
       </p>
 
       {exceeded > 0 && (
-        <p className="mt-3 text-base text-[var(--red)]">
+        <p className={`${detailClass} text-[var(--red)]`}>
           Excedido:{' '}
           <span className="font-semibold">{money(exceeded)}</span>
         </p>
       )}
 
-      <p className="mt-3 text-base text-[var(--muted)]">
+      <p className={`${detailClass} text-[var(--muted)]`}>
         Límite:{' '}
         <span className="font-semibold text-[var(--text)]">
           {money(monthlyLimit)}
