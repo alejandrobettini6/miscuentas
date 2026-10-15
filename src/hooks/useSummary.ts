@@ -11,6 +11,7 @@ export function useSummary(
   expenses: Expense[],
   accountType: AccountType,
   monthlyLimitOverride?: number | null,
+  emptyCustomCategories: string[] = [],
 ) {
   const { settings } = useSettingsContext()
 
@@ -46,6 +47,7 @@ export function useSummary(
       enabledFixed,
       accountingCurrency,
       rates,
+      emptyCustomCategories,
     )
 
     return { summary, color, progress, rows, accountingCurrency, rates }
@@ -54,5 +56,6 @@ export function useSummary(
     settings,
     accountType,
     monthlyLimitOverride,
+    emptyCustomCategories,
   ])
 }

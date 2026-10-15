@@ -11,6 +11,8 @@ interface CategoryRowProps {
   accountingCurrency?: Currency
   rates?: ExchangeRates
   disabled?: boolean
+  /** Mes cerrado: solo Ver detalles (si hay movimientos). */
+  readOnly?: boolean
   /** Categoría personalizada sin movimientos: el trash la elimina. */
   canRemoveCategory?: boolean
   /** El último movimiento proviene de un viaje fusionado y no se puede editar/borrar. */
@@ -30,6 +32,7 @@ function CategoryRowComponent({
   accountingCurrency = Currency.USD,
   rates = { usdWhite: 1, usdCash: 1 },
   disabled,
+  readOnly = false,
   canRemoveCategory = false,
   lastExpenseLocked = false,
   highlighted = false,
@@ -59,7 +62,7 @@ function CategoryRowComponent({
         type="button"
         className="min-h-10 flex-1 rounded-xl px-1 text-left active:bg-[var(--press)] disabled:opacity-50"
         onClick={() => onRegister(row)}
-        disabled={disabled}
+        disabled={disabled || readOnly}
         aria-label={`Registrar en ${row.label}`}
       >
         <div className="flex items-baseline justify-between gap-3">
@@ -79,7 +82,7 @@ function CategoryRowComponent({
         type="button"
         className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
         aria-label={`Agregar gasto en ${row.label}`}
-        disabled={disabled}
+        disabled={disabled || readOnly}
         onClick={() => onRegister(row)}
       >
         <Plus size={18} />
@@ -99,7 +102,7 @@ function CategoryRowComponent({
         type="button"
         className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
         aria-label={`Editar último movimiento de ${row.label}`}
-        disabled={disabled || !hasLast || itemLocked}
+        disabled={disabled || readOnly || !hasLast || itemLocked}
         onClick={() => onEdit(row)}
       >
         <Pencil size={18} />
@@ -113,7 +116,9 @@ function CategoryRowComponent({
             ? `Eliminar categoría ${row.label}`
             : `Eliminar último movimiento de ${row.label}`
         }
-        disabled={disabled || (!hasLast && !trashRemovesCategory) || itemLocked}
+        disabled={
+          disabled || readOnly || (!hasLast && !trashRemovesCategory) || itemLocked
+        }
         onClick={() => {
           if (trashRemovesCategory) {
             onRemoveCategory?.(row)

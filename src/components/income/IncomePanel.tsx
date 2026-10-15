@@ -88,7 +88,8 @@ export function IncomePanel({
   )
 
   const summary = useIncomeSummary(periodIncomes, expenses)
-  const locked = isReadOnly || isMutating
+  const mutationsLocked = isMutating
+  const mutationsBlocked = isReadOnly || mutationsLocked
 
   const rowKey = useCallback((row: IncomeRowModel) => row.accountType, [])
 
@@ -109,26 +110,26 @@ export function IncomePanel({
 
   const handleRegisterRow = useCallback(
     (row: IncomeRowModel) => {
-      if (locked) return
+      if (mutationsBlocked) return
       setAmountMode({ type: 'create', row })
     },
-    [locked],
+    [mutationsBlocked],
   )
 
   const handleEditRow = useCallback(
     (row: IncomeRowModel) => {
-      if (locked || !row.lastIncome) return
+      if (mutationsBlocked || !row.lastIncome) return
       setAmountMode({ type: 'edit', row, income: row.lastIncome })
     },
-    [locked],
+    [mutationsBlocked],
   )
 
   const handleDeleteRow = useCallback(
     (row: IncomeRowModel) => {
-      if (locked || !row.lastIncome) return
+      if (mutationsBlocked || !row.lastIncome) return
       setDeleteTarget(row.lastIncome)
     },
-    [locked],
+    [mutationsBlocked],
   )
 
   const handleViewDetailsRow = useCallback((row: IncomeRowModel) => {
@@ -137,20 +138,20 @@ export function IncomePanel({
 
   const handleEditIncomeFromDetails = useCallback(
     (income: Income) => {
-      if (locked || !detailsRow) return
+      if (mutationsBlocked || !detailsRow) return
       const row = detailsRow
       setDetailsRow(null)
       setAmountMode({ type: 'edit', row, income })
     },
-    [locked, detailsRow],
+    [mutationsBlocked, detailsRow],
   )
 
   const handleDeleteIncomeFromDetails = useCallback(
     (income: Income) => {
-      if (locked) return
+      if (mutationsBlocked) return
       setDeleteTarget(income)
     },
-    [locked],
+    [mutationsBlocked],
   )
 
   const handleAmountSubmit = async (
@@ -158,7 +159,7 @@ export function IncomePanel({
     currency: Currency,
     detail?: string,
   ) => {
-    if (!amountMode || locked) {
+    if (!amountMode || mutationsBlocked) {
       setAmountMode(null)
       return
     }
@@ -240,7 +241,8 @@ export function IncomePanel({
             row={row}
             accountingCurrency={accountingCurrency}
             rates={rates}
-            disabled={locked}
+            disabled={mutationsLocked}
+            readOnly={isReadOnly}
             onRegister={handleRegisterRow}
             onEdit={handleEditRow}
             onDelete={handleDeleteRow}

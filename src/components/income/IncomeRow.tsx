@@ -10,6 +10,7 @@ interface IncomeRowProps {
   accountingCurrency?: Currency
   rates?: ExchangeRates
   disabled?: boolean
+  readOnly?: boolean
   onRegister: (row: IncomeRowModel) => void
   onEdit: (row: IncomeRowModel) => void
   onDelete: (row: IncomeRowModel) => void
@@ -21,6 +22,7 @@ function IncomeRowComponent({
   accountingCurrency = Currency.USD,
   rates = { usdWhite: 1, usdCash: 1 },
   disabled,
+  readOnly = false,
   onRegister,
   onEdit,
   onDelete,
@@ -38,7 +40,7 @@ function IncomeRowComponent({
         type="button"
         className="min-h-10 flex-1 rounded-xl px-1 text-left active:bg-[var(--press)] disabled:opacity-50"
         onClick={() => onRegister(row)}
-        disabled={disabled}
+        disabled={disabled || readOnly}
         aria-label={`Registrar ingreso en ${row.label}`}
       >
         <div className="flex items-baseline justify-between gap-3">
@@ -58,7 +60,7 @@ function IncomeRowComponent({
         type="button"
         className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
         aria-label={`Agregar ingreso en ${row.label}`}
-        disabled={disabled}
+        disabled={disabled || readOnly}
         onClick={() => onRegister(row)}
       >
         <Plus size={18} />
@@ -78,7 +80,7 @@ function IncomeRowComponent({
         type="button"
         className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
         aria-label={`Editar último ingreso de ${row.label}`}
-        disabled={disabled || !hasLast}
+        disabled={disabled || readOnly || !hasLast}
         onClick={() => onEdit(row)}
       >
         <Pencil size={18} />
@@ -88,7 +90,7 @@ function IncomeRowComponent({
         type="button"
         className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--red)] disabled:opacity-30"
         aria-label={`Eliminar último ingreso de ${row.label}`}
-        disabled={disabled || !hasLast}
+        disabled={disabled || readOnly || !hasLast}
         onClick={() => onDelete(row)}
       >
         <Trash2 size={18} />
