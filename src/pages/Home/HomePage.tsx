@@ -199,6 +199,10 @@ export function HomePage() {
   const [undoDeadline, setUndoDeadline] = useState<number | null>(null)
   const [undoExpenseId, setUndoExpenseId] = useState<string | null>(null)
   const [busyRowKey, setBusyRowKey] = useState<string | null>(null)
+  /** Categorías personalizadas vacías agregadas explícitamente por período (sesión). */
+  const [emptyCustomByPeriod, setEmptyCustomByPeriod] = useState<
+    Record<string, string[]>
+  >({})
   const [searchQueries, setSearchQueries] = useState<
     Record<AccountType | 'TOTALS', string>
   >({
@@ -272,6 +276,11 @@ export function HomePage() {
 
   const customCategories = settings?.customCategories ?? []
 
+  const emptyCustomForPeriod = useMemo(() => {
+    if (!selectedPeriod) return []
+    return emptyCustomByPeriod[selectedPeriod.id] ?? []
+  }, [emptyCustomByPeriod, selectedPeriod])
+
   // Períodos cerrados antes de congelar el límite pueden tener snapshot null; fallback al límite actual.
   const periodLimit = isReadOnly
     ? (selectedPeriod?.monthlyLimitSnapshot ?? settings?.monthlyLimit ?? 0)
@@ -281,6 +290,7 @@ export function HomePage() {
     visibleExpenses,
     activeAccountType,
     periodLimit,
+    emptyCustomForPeriod,
   )
 
   const enabledFixedCategories = settings?.enabledFixedCategories ?? FIXED_CATEGORIES
@@ -292,6 +302,7 @@ export function HomePage() {
       enabledFixedCategories,
       accountingCurrency,
       rates,
+      emptyCustomForPeriod,
     )
   }, [
     visibleExpenses,
@@ -299,6 +310,7 @@ export function HomePage() {
     enabledFixedCategories,
     accountingCurrency,
     rates,
+    emptyCustomForPeriod,
   ])
 
   const categoryChartSlices = useMemo(() => {
@@ -369,7 +381,8 @@ export function HomePage() {
     [],
   )
 
-  const locked = isExpenseMutating || isIncomeMutating || isClosing || busyRowKey !== null || isReadOnly
+  const mutationsLocked =
+    isExpenseMutating || isIncomeMutating || isClosing || busyRowKey !== null
   const isLoadingData = isLoading || isIncomesLoading
 
   const handleRequestClosePeriod = useCallback(async (): Promise<boolean> => {
@@ -838,8 +851,39 @@ export function HomePage() {
     }
   }
 
+  const customExpensesForRowInPeriod = useCallback(
+    (row: CategoryRowModel) =>
+      visibleExpenses.filter((e) =>
+        CategoryAggregator.matchesExpenseToRow(e, row, customCategories),
+      ),
+    [visibleExpenses, customCategories],
+  )
+
+  const customExpensesForRowGlobal = useCallback(
+    (row: CategoryRowModel) =>
+      allExpenses.filter((e) =>
+        CategoryAggregator.matchesExpenseToRow(e, row, customCategories),
+      ),
+    [allExpenses, customCategories],
+  )
+
+  const periodHasCustomCategoryName = useCallback(
+    (lower: string) => {
+      const inEmpty = (emptyCustomForPeriod ?? []).some(
+        (c) => c.toLowerCase() === lower,
+      )
+      if (inEmpty) return true
+      return visibleExpenses.some(
+        (e) =>
+          e.category === Category.OTHER &&
+          e.description?.trim().toLowerCase() === lower,
+      )
+    },
+    [emptyCustomForPeriod, visibleExpenses],
+  )
+
   const handleAddCategory = async (rawName: string) => {
-    if (!settings || isReadOnly) throw new Error('Sin configuración')
+    if (!settings || !selectedPeriod || isReadOnly) throw new Error('Sin configuración')
 
     if (!isValidCustomCategoryName(rawName)) {
       throw new Error('Nombre inválido (máx. 40 caracteres)')
@@ -852,39 +896,42 @@ export function HomePage() {
       throw new Error('Esa categoría ya existe')
     }
 
+    if (periodHasCustomCategoryName(lower)) {
+      throw new Error('Esa categoría ya existe')
+    }
+
     const existingCustom = settings.customCategories.map((c) => c.toLowerCase())
-    if (existingCustom.includes(lower)) {
-      throw new Error('Esa categoría ya existe')
+    const inSettings = existingCustom.includes(lower)
+
+    if (!inSettings) {
+      const fromExpenses = allExpenses.some(
+        (e) =>
+          e.category === Category.OTHER &&
+          e.description?.toLowerCase() === lower,
+      )
+      if (fromExpenses) {
+        throw new Error('Esa categoría ya existe')
+      }
+      await updateSettings({
+        customCategories: [...settings.customCategories, name],
+      })
     }
 
-    const fromExpenses = allExpenses.some(
-      (e) =>
-        e.category === Category.OTHER &&
-        e.description?.toLowerCase() === lower,
-    )
-    if (fromExpenses) {
-      throw new Error('Esa categoría ya existe')
-    }
-
-    await updateSettings({
-      customCategories: [...settings.customCategories, name],
-    })
+    const periodId = selectedPeriod.id
+    setEmptyCustomByPeriod((prev) => ({
+      ...prev,
+      [periodId]: [...(prev[periodId] ?? []), name],
+    }))
     toast.success('Categoría agregada')
   }
 
-  const customExpensesForRow = (row: CategoryRowModel) =>
-    allExpenses.filter(
-      (e) =>
-        e.category === Category.OTHER &&
-        Boolean(e.description) &&
-        e.description!.toLowerCase() === (row.description ?? '').toLowerCase(),
-    )
-
   const canRemoveCustomCategory = (row: CategoryRowModel) =>
-    row.isOtrosGrande && customExpensesForRow(row).length === 0 && !isReadOnly
+    row.isOtrosGrande &&
+    customExpensesForRowInPeriod(row).length === 0 &&
+    !isReadOnly
 
   const handleRemoveCategory = async () => {
-    if (!removeCategoryTarget || !settings || isReadOnly) return
+    if (!removeCategoryTarget || !settings || !selectedPeriod || isReadOnly) return
     const row = removeCategoryTarget
     const key = rowKey(row)
     setRemoveCategoryTarget(null)
@@ -892,22 +939,26 @@ export function HomePage() {
     setBusyRowKey(key)
 
     try {
-      // No borramos movimientos: solo quitamos la categoría de settings.
-      // Si hay gastos, se vuelve a sembrar al agregar de nuevo o desde movimientos.
-      const relatedCount = customExpensesForRow(row).length
+      const globalCount = customExpensesForRowGlobal(row).length
       const lower = (row.description ?? '').toLowerCase()
-      const nextCustom = settings.customCategories.filter(
-        (c) => c.toLowerCase() !== lower,
-      )
-      if (nextCustom.length !== settings.customCategories.length) {
-        await updateSettings({ customCategories: nextCustom })
-      }
+      const periodId = selectedPeriod.id
 
-      toast.success(
-        relatedCount > 0
-          ? 'Categoría oculta (movimientos conservados)'
-          : 'Categoría eliminada',
-      )
+      setEmptyCustomByPeriod((prev) => ({
+        ...prev,
+        [periodId]: (prev[periodId] ?? []).filter((c) => c.toLowerCase() !== lower),
+      }))
+
+      if (globalCount === 0) {
+        const nextCustom = settings.customCategories.filter(
+          (c) => c.toLowerCase() !== lower,
+        )
+        if (nextCustom.length !== settings.customCategories.length) {
+          await updateSettings({ customCategories: nextCustom })
+        }
+        toast.success('Categoría eliminada')
+      } else {
+        toast.success('Categoría oculta en este mes (movimientos conservados)')
+      }
       clearUndo()
     } catch (error) {
       toast.error(getErrorMessage(error, 'No se pudo eliminar la categoría'))
@@ -984,7 +1035,7 @@ export function HomePage() {
         <ViewTabs
           value={viewMode}
           onChange={setViewMode}
-          disabled={locked && !isReadOnly}
+          disabled={mutationsLocked}
           showTrips
         />
       </div>
@@ -1035,7 +1086,7 @@ export function HomePage() {
           onChange={setExpenseAccountView}
           enabledAccounts={enabledAccounts}
           showTotals={showExpenseTotals}
-          disabled={locked && !isReadOnly ? true : false}
+          disabled={mutationsLocked}
         />
       </div>
 
@@ -1101,7 +1152,8 @@ export function HomePage() {
                 result={result}
                 accountingCurrency={accountingCurrency}
                 rates={rates}
-                disabled={locked}
+                disabled={mutationsLocked}
+                readOnly={isReadOnly}
                 lockedExpenseIds={mergedExpenseIds}
                 canRemoveCategory={
                   result.kind === 'category'
@@ -1124,7 +1176,8 @@ export function HomePage() {
                 row={row}
                 accountingCurrency={accountingCurrency}
                 rates={rates}
-                disabled={locked}
+                disabled={mutationsLocked}
+                readOnly={isReadOnly}
                 scrollKey={categoryRowScrollKey(row)}
                 highlighted={highlightCategoryKey === categoryRowScrollKey(row)}
                 lastExpenseLocked={
@@ -1139,7 +1192,10 @@ export function HomePage() {
               />
             ))}
             {!isReadOnly && (
-              <AddCategoryRow disabled={locked} onAdd={handleAddCategory} />
+              <AddCategoryRow
+                disabled={mutationsLocked || isReadOnly}
+                onAdd={handleAddCategory}
+              />
             )}
           </>
         )}
@@ -1219,8 +1275,8 @@ export function HomePage() {
       >
         <p className="mb-4 text-[var(--muted)]">
           {removeCategoryTarget &&
-          customExpensesForRow(removeCategoryTarget).length > 0
-            ? `¿Ocultar “${removeCategoryTarget.label}”? Sus movimientos se conservan.`
+          customExpensesForRowGlobal(removeCategoryTarget).length > 0
+            ? `¿Ocultar “${removeCategoryTarget.label}” en este mes? Los movimientos de otros meses se conservan.`
             : `¿Eliminar la categoría “${removeCategoryTarget?.label ?? ''}”?`}
         </p>
         <div className="flex gap-3">

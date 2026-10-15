@@ -191,8 +191,21 @@ describe('CategoryAggregator', () => {
     expect(superRow?.totalUsd).toBe(10)
   })
 
-  it('muestra categorías personalizadas de settings aunque estén en cero', () => {
-    const rows = CategoryAggregator.buildRows([], AccountType.WHITE, ['Mascotas'])
+  it('muestra categorías personalizadas vacías solo si se siembran para el período', () => {
+    const withoutSeed = CategoryAggregator.buildRows([], AccountType.WHITE, ['Mascotas'])
+    expect(
+      withoutSeed.some((r) => r.label === 'Mascotas' && r.isOtrosGrande),
+    ).toBe(false)
+
+    const rows = CategoryAggregator.buildRows(
+      [],
+      AccountType.WHITE,
+      ['Mascotas'],
+      FIXED_CATEGORIES,
+      Currency.USD,
+      { usdWhite: 1, usdCash: 1 },
+      ['Mascotas'],
+    )
     const mascotas = rows.find((r) => r.label === 'Mascotas' && r.isOtrosGrande)
     expect(mascotas?.totalUsd).toBe(0)
     expect(mascotas?.lastExpense).toBeNull()
@@ -212,9 +225,21 @@ describe('CategoryAggregator', () => {
       'Hobby',
     ])
     const named = rows.filter((r) => r.isOtrosGrande)
-    expect(named).toHaveLength(2)
+    expect(named).toHaveLength(1)
     expect(named.find((r) => r.label === 'Mascotas')?.totalUsd).toBe(40)
-    expect(named.find((r) => r.label === 'Hobby')?.totalUsd).toBe(0)
+
+    const withHobbyEmpty = CategoryAggregator.buildRows(
+      expenses,
+      AccountType.WHITE,
+      ['Mascotas', 'Hobby'],
+      FIXED_CATEGORIES,
+      Currency.USD,
+      { usdWhite: 1, usdCash: 1 },
+      ['Hobby'],
+    )
+    const namedWithSeed = withHobbyEmpty.filter((r) => r.isOtrosGrande)
+    expect(namedWithSeed).toHaveLength(2)
+    expect(namedWithSeed.find((r) => r.label === 'Hobby')?.totalUsd).toBe(0)
   })
 
   describe('buildCombinedRows', () => {

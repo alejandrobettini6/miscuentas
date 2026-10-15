@@ -11,6 +11,7 @@ export class CategoryAggregator {
     enabledFixedCategories: Category[] = FIXED_CATEGORIES,
     accountingCurrency: Currency = Currency.USD,
     rates: ExchangeRates = { usdWhite: 1, usdCash: 1 },
+    emptyCustomCategories: string[] = [],
   ): CategoryRow[] {
     const accountExpenses = expenses.filter((e) => e.accountType === accountType)
     const rows: CategoryRow[] = []
@@ -38,7 +39,7 @@ export class CategoryAggregator {
       grandesMap.set(key, list)
     }
 
-    for (const name of customCategories) {
+    for (const name of emptyCustomCategories) {
       const trimmed = name.trim()
       if (!trimmed) continue
       const key = trimmed.toLowerCase()
@@ -81,6 +82,7 @@ export class CategoryAggregator {
     enabledFixedCategories: Category[] = FIXED_CATEGORIES,
     accountingCurrency: Currency = Currency.USD,
     rates: ExchangeRates = { usdWhite: 1, usdCash: 1 },
+    emptyCustomCategories: string[] = [],
   ): CombinedCategoryRow[] {
     const whiteRows = this.buildRows(
       expenses,
@@ -89,6 +91,7 @@ export class CategoryAggregator {
       enabledFixedCategories,
       accountingCurrency,
       rates,
+      emptyCustomCategories,
     )
     const cashRows = this.buildRows(
       expenses,
@@ -97,6 +100,7 @@ export class CategoryAggregator {
       enabledFixedCategories,
       accountingCurrency,
       rates,
+      emptyCustomCategories,
     )
 
     const byKey = new Map<string, CombinedCategoryRow>()

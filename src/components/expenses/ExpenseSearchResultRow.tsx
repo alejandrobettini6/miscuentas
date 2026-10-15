@@ -15,6 +15,7 @@ interface ExpenseSearchResultRowProps {
   accountingCurrency?: Currency
   rates?: ExchangeRates
   disabled?: boolean
+  readOnly?: boolean
   canRemoveCategory?: boolean
   lockedExpenseIds?: Set<string>
   onRegister: (row: CategoryRowModel) => void
@@ -29,6 +30,7 @@ function ExpenseSearchResultRowComponent({
   accountingCurrency = Currency.USD,
   rates = { usdWhite: 1, usdCash: 1 },
   disabled,
+  readOnly = false,
   canRemoveCategory = false,
   lockedExpenseIds,
   onRegister,
@@ -68,7 +70,7 @@ function ExpenseSearchResultRowComponent({
         type="button"
         className="min-h-10 flex-1 rounded-xl px-1 text-left active:bg-[var(--press)] disabled:opacity-50"
         onClick={() => onRegister(row)}
-        disabled={disabled}
+        disabled={disabled || readOnly}
         aria-label={
           isCategory
             ? `Registrar en ${row.label}`
@@ -90,7 +92,7 @@ function ExpenseSearchResultRowComponent({
         type="button"
         className="flex min-h-9 min-w-9 items-center justify-center rounded-xl text-[var(--blue)] disabled:opacity-30"
         aria-label={`Agregar gasto en ${row.label}`}
-        disabled={disabled}
+        disabled={disabled || readOnly}
         onClick={() => onRegister(row)}
       >
         <Plus size={18} />
@@ -114,7 +116,7 @@ function ExpenseSearchResultRowComponent({
             ? `Editar último movimiento de ${row.label}`
             : `Editar movimiento de ${row.label}`
         }
-        disabled={disabled || !expense || itemLocked}
+        disabled={disabled || readOnly || !expense || itemLocked}
         onClick={() => {
           if (expense) onEdit(row, expense)
         }}
@@ -132,7 +134,12 @@ function ExpenseSearchResultRowComponent({
               ? `Eliminar último movimiento de ${row.label}`
               : `Eliminar movimiento de ${row.label}`
         }
-        disabled={disabled || (!expense && !trashRemovesCategory) || itemLocked}
+        disabled={
+          disabled ||
+          readOnly ||
+          (!expense && !trashRemovesCategory) ||
+          itemLocked
+        }
         onClick={() => {
           if (trashRemovesCategory) {
             onRemoveCategory?.(row)
