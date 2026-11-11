@@ -22,6 +22,7 @@ import {
 } from '@/validators/amount'
 import { AmountInput } from '@/components/ui/AmountInput'
 import { Button } from '@/components/ui/Button'
+import { MercadoPagoConnectPanel } from '@/components/mercadopago/MercadoPagoConnectPanel'
 import { Modal } from '@/components/ui/Modal'
 import { PeriodLimitSummary } from '@/components/summary/PeriodLimitSummary'
 import toast from 'react-hot-toast'
@@ -67,7 +68,8 @@ export function SideMenu({
   onOpenTripHistory,
   onOpenSavings,
 }: SideMenuProps) {
-  const { logout } = useAuthContext()
+  const { logout, user } = useAuthContext()
+  const [mpOpen, setMpOpen] = useState(false)
   const { settings, updateSettings } = useSettingsContext()
   const { theme, setTheme } = useTheme()
   const [activeField, setActiveField] = useState<SettingField>(null)
@@ -304,6 +306,9 @@ export function SideMenu({
                 onOpenCardStatementImport()
               }}
             />
+            {user && (
+              <MenuButton label="Mercado Pago" onClick={() => setMpOpen(true)} />
+            )}
           </Section>
 
           {monthMode === MonthMode.MANUAL && (
@@ -397,6 +402,13 @@ export function SideMenu({
           </Button>
         </div>
       </Modal>
+      {user && (
+        <MercadoPagoConnectPanel
+          open={mpOpen}
+          userId={user.id}
+          onClose={() => setMpOpen(false)}
+        />
+      )}
     </>
   )
 }

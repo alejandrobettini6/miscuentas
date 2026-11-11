@@ -55,6 +55,7 @@ const SavingsPanel = lazy(() =>
 )
 import { MonthlySummaryCard } from '@/components/summary/MonthlySummaryCard'
 import { IncomePanel } from '@/components/income/IncomePanel'
+import { MercadoPagoInboxHost } from '@/components/mercadopago/MercadoPagoInboxHost'
 import { AmountSheet } from '@/components/ui/AmountSheet'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -1510,6 +1511,16 @@ export function HomePage() {
           busy={closeSavingsBusy || isClosing}
           onConfirm={(locationName) => void handleCloseSavingsConfirm(locationName)}
           onCancel={handleCloseSavingsCancel}
+        />
+      )}
+
+      {user && settings && (
+        <MercadoPagoInboxHost
+          userId={user.id}
+          settings={settings}
+          periods={periods}
+          selectedPeriod={selectedPeriod ?? null}
+          createExpense={createExpense}
         />
       )}
 
