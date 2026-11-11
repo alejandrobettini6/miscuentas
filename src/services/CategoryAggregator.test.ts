@@ -242,6 +242,45 @@ describe('CategoryAggregator', () => {
     expect(namedWithSeed.find((r) => r.label === 'Hobby')?.totalUsd).toBe(0)
   })
 
+  it('agrupa categoría solo del mes sin estar en settings', () => {
+    const expenses = [
+      expense({
+        category: Category.OTHER,
+        description: 'Ojotas',
+        originalAmount: 100,
+        usdAmount: 100,
+      }),
+      expense({
+        category: Category.OTHER,
+        description: 'MERPAGO*FOO',
+        originalAmount: 5,
+        usdAmount: 5,
+      }),
+    ]
+    const rows = CategoryAggregator.buildRows(
+      expenses,
+      AccountType.WHITE,
+      [],
+      FIXED_CATEGORIES,
+      Currency.USD,
+      { usdWhite: 1, usdCash: 1 },
+      ['Ojotas'],
+    )
+    const ojotas = rows.find((r) => r.label === 'Ojotas' && r.isOtrosGrande)
+    const otros = rows.find((r) => r.label === 'Otros' && !r.isOtrosGrande)
+    expect(ojotas?.totalUsd).toBe(100)
+    expect(otros?.totalUsd).toBe(5)
+
+    const items = CategoryAggregator.expensesForRow(
+      expenses,
+      AccountType.WHITE,
+      ojotas!,
+      [],
+      ['Ojotas'],
+    )
+    expect(items).toHaveLength(1)
+  })
+
   describe('buildCombinedRows', () => {
     it('suma Blanco y Negro por categoría y coincide con SummaryCalculator', () => {
       const expenses = [

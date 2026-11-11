@@ -11,6 +11,9 @@ export default defineConfig({
     },
   },
   base: '/miscuentas/',
+  optimizeDeps: {
+    exclude: ['@huggingface/transformers'],
+  },
   build: {
     rollupOptions: {
       output: {

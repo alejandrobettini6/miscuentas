@@ -23,15 +23,17 @@ export class CategoryAggregator {
       rows.push(buildFixedRow(category, items, accountingCurrency, rates))
     }
 
+    const listed = listedCustomNames(customCategories, emptyCustomCategories)
+
     const otherGeneral = accountExpenses.filter((e) =>
-      isOtrosGeneralExpense(e, customCategories),
+      isOtrosGeneralExpense(e, listed),
     )
     rows.push(buildFixedRow(Category.OTHER, otherGeneral, accountingCurrency, rates))
 
     const grandesMap = new Map<string, Expense[]>()
     for (const expense of accountExpenses) {
       if (expense.category !== Category.OTHER || !expense.description) continue
-      const categoryKey = resolveCustomCategoryKey(expense.description, customCategories)
+      const categoryKey = resolveCustomCategoryKey(expense.description, listed)
       if (!categoryKey) continue
       const key = categoryKey.toLowerCase()
       const list = grandesMap.get(key) ?? []
@@ -50,11 +52,11 @@ export class CategoryAggregator {
 
     const grandesRows: CategoryRow[] = []
     for (const [key, items] of grandesMap.entries()) {
-      const fromSettings = customCategories.find((c) => c.toLowerCase() === key)
+      const fromSettings = listed.find((c) => c.toLowerCase() === key)
       const label =
         fromSettings ??
         (items[0]?.description
-          ? resolveCustomCategoryKey(items[0].description, customCategories)
+          ? resolveCustomCategoryKey(items[0].description, listed)
           : null) ??
         key
       const totalUsd = round(
@@ -114,6 +116,7 @@ export class CategoryAggregator {
         accountingCurrency,
         rates,
         customCategories,
+        emptyCustomCategories,
       )
       byKey.set(key, {
         category: row.category,
@@ -157,10 +160,12 @@ export class CategoryAggregator {
     accountType: AccountType,
     row: Pick<CategoryRow, 'category' | 'description' | 'isOtrosGrande'>,
     customCategories: string[] = [],
+    emptyCustomCategories: string[] = [],
   ): Expense[] {
+    const listed = listedCustomNames(customCategories, emptyCustomCategories)
     return expenses
       .filter((e) => e.accountType === accountType)
-      .filter((e) => matchesRow(e, row, customCategories))
+      .filter((e) => matchesRow(e, row, listed))
       .sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       )
@@ -170,8 +175,13 @@ export class CategoryAggregator {
     expense: Expense,
     row: Pick<CategoryRow, 'category' | 'description' | 'isOtrosGrande'>,
     customCategories: string[] = [],
+    emptyCustomCategories: string[] = [],
   ): boolean {
-    return matchesRow(expense, row, customCategories)
+    return matchesRow(
+      expense,
+      row,
+      listedCustomNames(customCategories, emptyCustomCategories),
+    )
   }
 
   /** Fila de categoría que contiene un gasto, o null si no encaja en ninguna. */
@@ -179,10 +189,10 @@ export class CategoryAggregator {
     expense: Expense,
     rows: CategoryRow[],
     customCategories: string[] = [],
+    emptyCustomCategories: string[] = [],
   ): CategoryRow | null {
-    return (
-      rows.find((row) => matchesRow(expense, row, customCategories)) ?? null
-    )
+    const listed = listedCustomNames(customCategories, emptyCustomCategories)
+    return rows.find((row) => matchesRow(expense, row, listed)) ?? null
   }
 
   /** Totales Blanco/Negro de una categoría específica (ambas cuentas). */
@@ -192,8 +202,10 @@ export class CategoryAggregator {
     accountingCurrency: Currency = Currency.USD,
     rates: ExchangeRates = { usdWhite: 1, usdCash: 1 },
     customCategories: string[] = [],
+    emptyCustomCategories: string[] = [],
   ): { totalWhite: number; totalCash: number } {
-    const matched = expenses.filter((e) => matchesRow(e, row, customCategories))
+    const listed = listedCustomNames(customCategories, emptyCustomCategories)
+    const matched = expenses.filter((e) => matchesRow(e, row, listed))
     return {
       totalWhite: round(
         matched
@@ -207,6 +219,14 @@ export class CategoryAggregator {
       ),
     }
   }
+}
+
+function listedCustomNames(
+  customCategories: string[],
+  emptyCustomCategories: string[] = [],
+): string[] {
+  if (emptyCustomCategories.length === 0) return customCategories
+  return [...customCategories, ...emptyCustomCategories]
 }
 
 function resolveCustomCategoryKey(

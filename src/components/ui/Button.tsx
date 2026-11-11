@@ -2,13 +2,14 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'ghost'
 }
 
 const variants: Record<NonNullable<ButtonProps['variant']>, string> = {
   primary: 'bg-[var(--blue)] text-white',
   secondary: 'bg-[var(--fill)] text-[var(--text)]',
   danger: 'bg-[var(--red)] text-white',
+  success: 'bg-[var(--green)] text-white',
   ghost: 'bg-transparent text-[var(--blue)]',
 }
 

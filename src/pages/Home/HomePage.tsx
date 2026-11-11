@@ -55,7 +55,12 @@ const SavingsPanel = lazy(() =>
 )
 import { MonthlySummaryCard } from '@/components/summary/MonthlySummaryCard'
 import { IncomePanel } from '@/components/income/IncomePanel'
+import {
+  VoiceExpenseModal,
+  type VoiceCategoryOption,
+} from '@/components/expenses/VoiceExpenseModal'
 import { AmountSheet } from '@/components/ui/AmountSheet'
+import { AudioTab } from '@/components/ui/AudioTab'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Tabs } from '@/components/ui/Tabs'
@@ -96,6 +101,11 @@ import {
 } from '@/utils/savingsCatchUpSkip'
 import { ClosePeriodSavingsModal } from '@/components/savings/ClosePeriodSavingsModal'
 import { useSavings } from '@/hooks/useSavings'
+import { useVoiceExpense } from '@/hooks/useVoiceExpense'
+import {
+  readPeriodCustomCategories,
+  writePeriodCustomCategories,
+} from '@/lib/periodCustomCategories'
 import { categoryRowScrollKey } from '@/utils/categoryScrollKey'
 import {
   AccountType,
@@ -114,6 +124,7 @@ import type {
   Expense,
   Period,
 } from '@/types/models'
+import type { VoiceExpenseDraft } from '@/services/voice/types'
 import { getMonthLabelFromKey, getYearMonthKey, nextYearMonth } from '@/utils/date'
 import { getErrorMessage } from '@/utils/errors'
 import {
@@ -202,7 +213,16 @@ export function HomePage() {
   /** Categorías personalizadas vacías agregadas explícitamente por período (sesión). */
   const [emptyCustomByPeriod, setEmptyCustomByPeriod] = useState<
     Record<string, string[]>
-  >({})
+  >(readPeriodCustomCategories)
+  const {
+    open: voiceOpen,
+    ui: voiceUi,
+    startListening,
+    finishListening,
+    reinterpret,
+    close: closeVoice,
+  } = useVoiceExpense()
+  const [voiceAccepting, setVoiceAccepting] = useState(false)
   const [searchQueries, setSearchQueries] = useState<
     Record<AccountType | 'TOTALS', string>
   >({
@@ -281,6 +301,10 @@ export function HomePage() {
     return emptyCustomByPeriod[selectedPeriod.id] ?? []
   }, [emptyCustomByPeriod, selectedPeriod])
 
+  useEffect(() => {
+    writePeriodCustomCategories(emptyCustomByPeriod)
+  }, [emptyCustomByPeriod])
+
   // Períodos cerrados antes de congelar el límite pueden tener snapshot null; fallback al límite actual.
   const periodLimit = isReadOnly
     ? (selectedPeriod?.monthlyLimitSnapshot ?? settings?.monthlyLimit ?? 0)
@@ -356,6 +380,7 @@ export function HomePage() {
       expenses: visibleExpenses,
       accountType: activeAccountType,
       customCategories,
+      emptyCustomCategories: emptyCustomForPeriod,
       accountingCurrency,
       rates,
     })
@@ -366,6 +391,7 @@ export function HomePage() {
     visibleExpenses,
     activeAccountType,
     customCategories,
+    emptyCustomForPeriod,
     accountingCurrency,
     rates,
   ])
@@ -665,8 +691,9 @@ export function HomePage() {
       activeAccountType,
       detailsRow,
       customCategories,
+      emptyCustomForPeriod,
     )
-  }, [detailsRow, visibleExpenses, activeAccountType, customCategories])
+  }, [detailsRow, visibleExpenses, activeAccountType, customCategories, emptyCustomForPeriod])
 
   const detailsAccountTotals = useMemo(() => {
     if (!detailsRow) return { totalWhite: 0, totalCash: 0 }
@@ -676,8 +703,9 @@ export function HomePage() {
       accountingCurrency,
       rates,
       customCategories,
+      emptyCustomForPeriod,
     )
-  }, [detailsRow, visibleExpenses, accountingCurrency, rates, customCategories])
+  }, [detailsRow, visibleExpenses, accountingCurrency, rates, customCategories, emptyCustomForPeriod])
 
   const clearUndo = useCallback(() => {
     setUndoDeadline(null)
@@ -854,17 +882,27 @@ export function HomePage() {
   const customExpensesForRowInPeriod = useCallback(
     (row: CategoryRowModel) =>
       visibleExpenses.filter((e) =>
-        CategoryAggregator.matchesExpenseToRow(e, row, customCategories),
+        CategoryAggregator.matchesExpenseToRow(
+          e,
+          row,
+          customCategories,
+          emptyCustomForPeriod,
+        ),
       ),
-    [visibleExpenses, customCategories],
+    [visibleExpenses, customCategories, emptyCustomForPeriod],
   )
 
   const customExpensesForRowGlobal = useCallback(
     (row: CategoryRowModel) =>
       allExpenses.filter((e) =>
-        CategoryAggregator.matchesExpenseToRow(e, row, customCategories),
+        CategoryAggregator.matchesExpenseToRow(
+          e,
+          row,
+          customCategories,
+          emptyCustomForPeriod,
+        ),
       ),
-    [allExpenses, customCategories],
+    [allExpenses, customCategories, emptyCustomForPeriod],
   )
 
   const periodHasCustomCategoryName = useCallback(
@@ -923,6 +961,109 @@ export function HomePage() {
       [periodId]: [...(prev[periodId] ?? []), name],
     }))
     toast.success('Categoría agregada')
+  }
+
+  const handleAudioTabClick = () => {
+    if (viewMode !== ViewMode.EXPENSES) {
+      toast.error('El audio solo carga gastos. Cambiá a Gastos.')
+      return
+    }
+    if (isReadOnly) {
+      toast.error('Estás viendo un mes cerrado. Solo lectura.')
+      return
+    }
+    if (!settings || !selectedPeriod) return
+    startListening({
+      enabledAccounts,
+      enabledCurrencies,
+      enabledFixedCategories,
+      customCategories,
+      monthOnlyCategories: emptyCustomForPeriod,
+      activeAccountType: isTotalsView ? null : activeAccountType,
+    })
+  }
+
+  const voiceCategoryOptions = useMemo((): VoiceCategoryOption[] => {
+    const options: VoiceCategoryOption[] = []
+    for (const category of enabledFixedCategories) {
+      options.push({
+        id: `fixed:${category}`,
+        label: CATEGORY_LABELS[category],
+        category,
+        description: null,
+        monthOnly: false,
+      })
+    }
+    options.push({
+      id: 'other',
+      label: CATEGORY_LABELS[Category.OTHER],
+      category: Category.OTHER,
+      description: null,
+      monthOnly: false,
+    })
+    const seen = new Set<string>()
+    for (const name of customCategories) {
+      const key = name.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      options.push({
+        id: `custom:${key}`,
+        label: name,
+        category: Category.OTHER,
+        description: name,
+        monthOnly: false,
+      })
+    }
+    for (const name of emptyCustomForPeriod) {
+      const key = name.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      options.push({
+        id: `month:${key}`,
+        label: name,
+        category: Category.OTHER,
+        description: name,
+        monthOnly: true,
+      })
+    }
+    return options
+  }, [enabledFixedCategories, customCategories, emptyCustomForPeriod])
+
+  const handleVoiceAccept = async (draft: VoiceExpenseDraft) => {
+    if (!settings || !selectedPeriod || isReadOnly) return
+    setVoiceAccepting(true)
+    try {
+      if (draft.monthOnlyCategory && draft.description) {
+        const lower = draft.description.toLowerCase()
+        const already = (emptyCustomByPeriod[selectedPeriod.id] ?? []).some(
+          (name) => name.toLowerCase() === lower,
+        )
+        if (!already) {
+          setEmptyCustomByPeriod((prev) => ({
+            ...prev,
+            [selectedPeriod.id]: [...(prev[selectedPeriod.id] ?? []), draft.description!],
+          }))
+        }
+      }
+
+      const expense = await createExpense({
+        periodId: selectedPeriod.id,
+        accountType: draft.accountType,
+        category: draft.category,
+        description: draft.description,
+        originalAmount: draft.originalAmount,
+        originalCurrency: draft.originalCurrency,
+        customExchangeRate: null,
+      })
+      toast.success('Movimiento registrado')
+      setUndoExpenseId(expense.id)
+      setUndoDeadline(createUndoDeadline())
+      closeVoice()
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Error al registrar'))
+    } finally {
+      setVoiceAccepting(false)
+    }
   }
 
   const canRemoveCustomCategory = (row: CategoryRowModel) =>
@@ -1038,6 +1179,7 @@ export function HomePage() {
           disabled={mutationsLocked}
           showTrips
         />
+        <AudioTab disabled={mutationsLocked} onClick={handleAudioTabClick} />
       </div>
 
       {viewMode === ViewMode.TRIPS ? (
@@ -1512,6 +1654,21 @@ export function HomePage() {
           onCancel={handleCloseSavingsCancel}
         />
       )}
+
+      <VoiceExpenseModal
+        open={voiceOpen}
+        ui={voiceUi}
+        accepting={voiceAccepting}
+        categoryOptions={voiceCategoryOptions}
+        enabledAccounts={enabledAccounts}
+        enabledCurrencies={enabledCurrencies}
+        accountingCurrency={accountingCurrency}
+        exchangeRates={rates}
+        onAccept={(draft) => void handleVoiceAccept(draft)}
+        onReject={closeVoice}
+        onFinishListening={finishListening}
+        onReinterpret={reinterpret}
+      />
 
       {!isReadOnly && (
         <UndoBar

@@ -9,4 +9,5 @@ export const STORAGE_KEYS = {
   OFFLINE_QUEUE: 'miscuentas:offline_queue',
   THEME: 'miscuentas:theme',
   AMOUNTS_HIDDEN: 'miscuentas:amounts_hidden',
+  PERIOD_CUSTOM_CATEGORIES: 'miscuentas:period_custom_categories',
 } as const

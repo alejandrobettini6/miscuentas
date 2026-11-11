@@ -44,6 +44,7 @@ interface SearchParams {
   expenses: Expense[]
   accountType: AccountType
   customCategories?: string[]
+  emptyCustomCategories?: string[]
   accountingCurrency?: Currency
   rates?: ExchangeRates
 }
@@ -55,6 +56,7 @@ export class ExpenseSearchService {
     expenses,
     accountType,
     customCategories = [],
+    emptyCustomCategories = [],
     accountingCurrency = Currency.USD,
     rates = { usdWhite: 1, usdCash: 1 },
   }: SearchParams): ExpenseSearchResult[] {
@@ -77,6 +79,7 @@ export class ExpenseSearchService {
         expense,
         rows,
         customCategories,
+        emptyCustomCategories,
       )
       if (!row) continue
 
