@@ -40,6 +40,30 @@ export function supabaseInboxConfigured(): boolean {
   return Boolean(url && anonKey)
 }
 
+/** True si esta sesión ya guardó su Access Token. No devuelve el token. */
+export async function hasMercadoPagoAccessToken(): Promise<boolean> {
+  if (!supabaseInboxConfigured()) return false
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase.rpc('has_mp_access_token')
+  if (error) return false
+  return data === true
+}
+
+/** Guarda el Access Token de la sesión actual. Otro usuario no puede leerlo ni usarlo. */
+export async function saveMercadoPagoAccessToken(accessToken: string): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase.rpc('save_mp_access_token', {
+    p_token: accessToken.trim(),
+  })
+  if (error) throw error
+}
+
+export async function clearMercadoPagoAccessToken(): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase.rpc('clear_mp_access_token')
+  if (error) throw error
+}
+
 export function getMercadoPagoToken(userId: string): string | null {
   const stored = localStorage.getItem(tokenKey(userId))
   return stored && /^[a-f0-9]{64}$/.test(stored) ? stored : null
@@ -202,33 +226,44 @@ export function forgetMercadoPagoApplied(userId: string, externalId: string): vo
   )
 }
 
-/** Trae los pagos de prueba del servidor local y los deja en la bandeja. */
+interface SyncNotice {
+  externalId: string
+  title: string
+  body: string
+  categoryHint?: string
+  postedAt: string
+}
+
+/** Trae los cobros de Mercado Pago y los deja en la bandeja. */
 export async function pullMercadoPagoTestNotices(userId: string): Promise<void> {
-  if (!import.meta.env.DEV) return
   try {
-    const response = await fetch(`${import.meta.env.BASE_URL}api/mp-test-sync`)
-    if (!response.ok) return
-    const payload = (await response.json()) as {
-      notices?: Array<{
-        externalId: string
-        title: string
-        body: string
-        categoryHint?: string
-        postedAt: string
-      }>
-    }
-    for (const notice of payload.notices ?? []) {
-      enqueueLocalMercadoPagoNotice(userId, {
-        externalId: notice.externalId,
-        title: notice.title,
-        body: notice.body,
-        categoryHint: notice.categoryHint,
-        postedAt: notice.postedAt,
-      })
+    const notices = import.meta.env.DEV
+      ? await noticesFromDevServer()
+      : await noticesFromProduction()
+    for (const notice of notices) {
+      enqueueLocalMercadoPagoNotice(userId, notice)
     }
   } catch {
-    // Sin el servidor de desarrollo no hay pagos de prueba para leer.
+    // Sin el servidor no hay cobros para leer.
   }
+}
+
+async function noticesFromDevServer(): Promise<SyncNotice[]> {
+  const response = await fetch(`${import.meta.env.BASE_URL}api/mp-test-sync`)
+  if (!response.ok) return []
+  const payload = (await response.json()) as { notices?: SyncNotice[] }
+  return payload.notices ?? []
+}
+
+async function noticesFromProduction(): Promise<SyncNotice[]> {
+  if (!supabaseInboxConfigured()) return []
+  const supabase = getSupabaseClient()
+  const { data: sessionData } = await supabase.auth.getSession()
+  if (!sessionData.session) return []
+  const { data, error } = await supabase.functions.invoke('mp-sync', { method: 'GET' })
+  if (error || !data || typeof data !== 'object') return []
+  const notices = (data as { notices?: SyncNotice[] }).notices
+  return notices ?? []
 }
 
 export async function listMercadoPagoNotices(userId: string): Promise<MpNotice[]> {
