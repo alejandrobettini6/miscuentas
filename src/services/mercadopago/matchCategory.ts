@@ -1,3 +1,4 @@
+import { CATEGORY_LABELS } from '@/constants/categories'
 import { Category } from '@/types/enums'
 
 const KEYWORDS: Partial<Record<Category, string[]>> = {
@@ -70,6 +71,33 @@ function fold(value: string): string {
 function hasToken(haystack: string, needle: string): boolean {
   const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`).test(haystack)
+}
+
+/**
+ * Un valor explícito del pago: el id de categoría, su nombre en español
+ * o una palabra que ya conocemos. Si no cierra, no adivina.
+ */
+export function matchCategorySignal(
+  value: string,
+  enabledFixed: Category[],
+  customCategories: string[],
+): CategoryMatch | null {
+  const folded = fold(value.trim())
+  if (!folded) return null
+
+  for (const category of enabledFixed) {
+    const label = CATEGORY_LABELS[category]
+    if (fold(category) === folded || fold(label) === folded) {
+      return { category, customName: null }
+    }
+  }
+
+  const custom = customCategories.find((name) => fold(name.trim()) === folded)
+  if (custom && folded.length >= 3) {
+    return { category: Category.OTHER, customName: custom.trim() }
+  }
+
+  return matchExpenseCategory(value, enabledFixed, customCategories)
 }
 
 /**

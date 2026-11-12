@@ -47,6 +47,20 @@ describe('planMercadoPagoNotice', () => {
     expect(plan.type).toBe('review')
   })
 
+  it('usa la categoría que vino en el ítem aunque el título no la diga', () => {
+    const plan = planMercadoPagoNotice({
+      ...base,
+      title: 'Pagaste $15',
+      body: 'en TITLE',
+      categoryHint: 'SALUD',
+    })
+    expect(plan.type).toBe('auto')
+    if (plan.type !== 'auto') return
+    expect(plan.expense.category).toBe(Category.SALUD)
+    expect(plan.expense.detail).toBe('TITLE')
+    expect(plan.expense.amount).toBe(15)
+  })
+
   it('siempre pide categoría en una transferencia', () => {
     const plan = planMercadoPagoNotice({
       ...base,

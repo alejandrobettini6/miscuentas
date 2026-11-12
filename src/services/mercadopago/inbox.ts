@@ -12,6 +12,7 @@ export interface MpNotice {
   externalId: string
   title: string
   body: string
+  categoryHint?: string
   postedAt: string
   origin: 'local' | 'remote'
 }
@@ -66,21 +67,121 @@ function writeLocal(userId: string, notices: MpNotice[]): void {
 
 export function enqueueLocalMercadoPagoNotice(
   userId: string,
-  input: { title: string; body: string; postedAt?: string; externalId?: string },
+  input: {
+    title: string
+    body: string
+    categoryHint?: string
+    postedAt?: string
+    externalId?: string
+  },
 ): MpNotice | null {
   if (input.externalId && wasMercadoPagoApplied(userId, input.externalId)) return null
   const existing = readLocal(userId).find((notice) => notice.externalId === input.externalId)
-  if (input.externalId && existing) return null
+  if (input.externalId && existing) {
+    if (input.categoryHint && existing.categoryHint !== input.categoryHint) {
+      writeLocal(
+        userId,
+        readLocal(userId).map((notice) =>
+          notice.externalId === input.externalId
+            ? { ...notice, categoryHint: input.categoryHint }
+            : notice,
+        ),
+      )
+    }
+    return null
+  }
   const notice: MpNotice = {
     id: createId(),
     externalId: input.externalId ?? createId(),
     title: input.title,
     body: input.body,
+    ...(input.categoryHint ? { categoryHint: input.categoryHint } : {}),
     postedAt: input.postedAt ?? new Date().toISOString(),
     origin: 'local',
   }
   writeLocal(userId, [...readLocal(userId), notice])
   return notice
+}
+
+const claimInFlight = new Set<string>()
+const claimStoredRemotely = new Set<string>()
+
+function claimKey(userId: string, externalId: string): string {
+  return `${userId}:${externalId}`
+}
+
+function missingRegisteredTable(error: { code?: string; message?: string }): boolean {
+  const code = error.code ?? ''
+  const message = error.message ?? ''
+  return (
+    code === 'PGRST205' ||
+    code === '42P01' ||
+    /mp_registered/.test(message) && /schema cache|does not exist|Could not find/i.test(message)
+  )
+}
+
+/**
+ * Reserva el pago antes de crear el gasto. Si otra ventana ya lo reservó,
+ * no hay que insertarlo de nuevo.
+ */
+export async function claimMercadoPagoRegistration(
+  userId: string,
+  externalId: string,
+): Promise<'claimed' | 'taken'> {
+  const run = async (): Promise<'claimed' | 'taken'> => {
+    const key = claimKey(userId, externalId)
+    if (claimInFlight.has(key) || wasMercadoPagoApplied(userId, externalId)) return 'taken'
+    claimInFlight.add(key)
+    rememberMercadoPagoApplied(userId, externalId)
+    try {
+      const remote = await claimRegisteredPayment(userId, externalId)
+      if (remote === 'taken') return 'taken'
+      if (remote === 'stored') claimStoredRemotely.add(key)
+      return 'claimed'
+    } catch (error) {
+      claimInFlight.delete(key)
+      forgetMercadoPagoApplied(userId, externalId)
+      throw error
+    }
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return navigator.locks.request(`miscuentas-mp:${userId}:${externalId}`, run)
+  }
+  return run()
+}
+
+export async function releaseMercadoPagoRegistration(
+  userId: string,
+  externalId: string,
+): Promise<void> {
+  const key = claimKey(userId, externalId)
+  claimInFlight.delete(key)
+  forgetMercadoPagoApplied(userId, externalId)
+  if (!claimStoredRemotely.has(key) || !supabaseInboxConfigured()) return
+  claimStoredRemotely.delete(key)
+  const supabase = getSupabaseClient()
+  await supabase
+    .from('mp_registered')
+    .delete()
+    .eq('user_id', userId)
+    .eq('external_id', externalId)
+}
+
+async function claimRegisteredPayment(
+  userId: string,
+  externalId: string,
+): Promise<'stored' | 'taken' | 'unavailable'> {
+  if (!supabaseInboxConfigured()) return 'unavailable'
+  const supabase = getSupabaseClient()
+  const { error } = await supabase.from('mp_registered').insert({
+    user_id: userId,
+    external_id: externalId,
+  })
+  if (!error) return 'stored'
+  if (error.code === '23505') return 'taken'
+  if (missingRegisteredTable(error)) return 'unavailable'
+  throw error
 }
 
 /** Pagos que la persona ya registró o ignoró. No se vuelven a mostrar. */
@@ -112,6 +213,7 @@ export async function pullMercadoPagoTestNotices(userId: string): Promise<void> 
         externalId: string
         title: string
         body: string
+        categoryHint?: string
         postedAt: string
       }>
     }
@@ -120,6 +222,7 @@ export async function pullMercadoPagoTestNotices(userId: string): Promise<void> 
         externalId: notice.externalId,
         title: notice.title,
         body: notice.body,
+        categoryHint: notice.categoryHint,
         postedAt: notice.postedAt,
       })
     }

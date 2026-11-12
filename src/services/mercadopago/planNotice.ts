@@ -1,5 +1,5 @@
 import { AccountType, Category, Currency } from '@/types/enums'
-import { matchExpenseCategory } from './matchCategory'
+import { matchCategorySignal, matchExpenseCategory } from './matchCategory'
 import {
   parseMercadoPagoNotification,
   type MercadoPagoNoticeKind,
@@ -48,6 +48,7 @@ export function planMercadoPagoNotice(input: {
   externalId: string
   title: string
   body: string
+  categoryHint?: string
   postedAt: string
   enabledAccounts: AccountType[]
   enabledFixed: Category[]
@@ -63,11 +64,12 @@ export function planMercadoPagoNotice(input: {
   }
 
   const accountType = accountForMercadoPagoExpense(input.enabledAccounts)
-  const match = matchExpenseCategory(
-    parsed.merchant,
-    input.enabledFixed,
-    input.customCategories,
-  )
+  const fromHint = input.categoryHint
+    ? matchCategorySignal(input.categoryHint, input.enabledFixed, input.customCategories)
+    : null
+  const match =
+    fromHint ??
+    matchExpenseCategory(parsed.merchant, input.enabledFixed, input.customCategories)
   const detail = parsed.merchant
 
   if (parsed.kind === 'payment' && match && match.customName == null) {

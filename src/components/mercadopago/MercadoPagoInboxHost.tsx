@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import type { CreateExpenseInput, Period, Settings } from '@/types/models'
 import {
   ackMercadoPagoNotice,
   dismissMercadoPagoNotice,
-  forgetMercadoPagoApplied,
+  claimMercadoPagoRegistration,
   listMercadoPagoNotices,
   pullMercadoPagoTestNotices,
+  releaseMercadoPagoRegistration,
   rememberMercadoPagoApplied,
   wasMercadoPagoApplied,
   type MpNotice,
@@ -23,6 +24,7 @@ import {
   MercadoPagoExpensePrompt,
   type MercadoPagoPromptResult,
 } from './MercadoPagoExpensePrompt'
+import { MercadoPagoSavedNotice } from './MercadoPagoSavedNotice'
 
 interface MercadoPagoInboxHostProps {
   userId: string
@@ -45,11 +47,14 @@ export function MercadoPagoInboxHost({
 }: MercadoPagoInboxHostProps) {
   const [modal, setModal] = useState<ReviewItem | null>(null)
   const [waiting, setWaiting] = useState<ReviewItem[]>([])
+  const [notice, setNotice] = useState<MercadoPagoAutoExpense | null>(null)
   const [busy, setBusy] = useState(false)
   const seen = useRef(new Set<string>())
   const running = useRef(false)
   const modalRef = useRef<ReviewItem | null>(null)
   const waitingRef = useRef<ReviewItem[]>([])
+  const noticeRef = useRef<MercadoPagoAutoExpense | null>(null)
+  const noticeQueue = useRef<MercadoPagoAutoExpense[]>([])
   const createRef = useRef(createExpense)
   const settingsRef = useRef(settings)
   const periodsRef = useRef(periods)
@@ -72,7 +77,7 @@ export function MercadoPagoInboxHost({
       let nextModal = modalRef.current
       const nextWaiting = [...waitingRef.current]
       for (const review of unseen) {
-        if (!nextModal) nextModal = review
+        if (!nextModal && !noticeRef.current) nextModal = review
         else nextWaiting.push(review)
       }
       waitingRef.current = nextWaiting
@@ -84,7 +89,6 @@ export function MercadoPagoInboxHost({
     const tick = async () => {
       if (running.current || !alive) return
       running.current = true
-      let autoCount = 0
       const reviews: ReviewItem[] = []
       try {
         await pullMercadoPagoTestNotices(userId)
@@ -98,6 +102,7 @@ export function MercadoPagoInboxHost({
             externalId: notice.externalId,
             title: notice.title,
             body: notice.body,
+            categoryHint: notice.categoryHint,
             postedAt: notice.postedAt,
             enabledAccounts: currentSettings.enabledAccounts,
             enabledFixed: currentSettings.enabledFixedCategories,
@@ -125,14 +130,15 @@ export function MercadoPagoInboxHost({
           if (saved === 'saved') {
             seen.current.add(notice.id)
             await ackMercadoPagoNotice(userId, notice)
-            autoCount += 1
+            enqueueSaved(plan.expense)
+          } else if (saved === 'taken') {
+            seen.current.add(notice.id)
+            await ackMercadoPagoNotice(userId, notice)
           } else if (saved === 'needs-period') {
             reviews.push(reviewFromAuto(plan.expense, notice.origin))
           }
         }
         if (alive) showReviews(reviews)
-        if (autoCount === 1) toast.success('Gasto de Mercado Pago registrado')
-        if (autoCount > 1) toast.success(`${autoCount} gastos de Mercado Pago registrados`)
       } finally {
         running.current = false
       }
@@ -146,13 +152,47 @@ export function MercadoPagoInboxHost({
     }
   }, [userId])
 
-  const advance = () => {
+  const showQueuedReview = () => {
+    if (modalRef.current || noticeRef.current || waitingRef.current.length === 0) return
     const [next, ...rest] = waitingRef.current
     waitingRef.current = rest
     modalRef.current = next ?? null
     setWaiting(rest)
     setModal(next ?? null)
   }
+
+  const enqueueSaved = (expense: MercadoPagoAutoExpense) => {
+    if (noticeRef.current || modalRef.current) {
+      noticeQueue.current.push(expense)
+      return
+    }
+    noticeRef.current = expense
+    setNotice(expense)
+  }
+
+  const advance = () => {
+    const [next, ...rest] = waitingRef.current
+    waitingRef.current = rest
+    modalRef.current = next ?? null
+    setWaiting(rest)
+    setModal(next ?? null)
+    if (!next) revealSaved()
+  }
+
+  const revealSaved = () => {
+    if (noticeRef.current || modalRef.current) return
+    const next = noticeQueue.current.shift()
+    if (!next) return
+    noticeRef.current = next
+    setNotice(next)
+  }
+
+  const closeNotice = useCallback(() => {
+    const next = noticeQueue.current.shift() ?? null
+    noticeRef.current = next
+    setNotice(next)
+    if (!next) showQueuedReview()
+  }, [])
 
   const confirm = async (result: MercadoPagoPromptResult) => {
     if (!modal) return
@@ -162,8 +202,13 @@ export function MercadoPagoInboxHost({
       return
     }
     setBusy(true)
-    rememberMercadoPagoApplied(userId, modal.externalId)
     try {
+      const claim = await claimMercadoPagoRegistration(userId, modal.externalId)
+      if (claim === 'taken') {
+        await ackMercadoPagoNotice(userId, { id: modal.noticeId, origin: modal.origin })
+        advance()
+        return
+      }
       await createExpense({
         periodId: period.id,
         accountType: result.accountType,
@@ -177,7 +222,7 @@ export function MercadoPagoInboxHost({
       toast.success('Gasto de Mercado Pago registrado')
       advance()
     } catch (error) {
-      forgetMercadoPagoApplied(userId, modal.externalId)
+      await releaseMercadoPagoRegistration(userId, modal.externalId)
       toast.error(getErrorMessage(error, 'No se pudo registrar el gasto'))
     } finally {
       setBusy(false)
@@ -196,16 +241,21 @@ export function MercadoPagoInboxHost({
     }
   }
 
-  if (!modal) return null
+  if (!modal && !notice) return null
 
   return (
-    <MercadoPagoExpensePrompt
-      review={modal}
-      settings={settings}
-      busy={busy}
-      onConfirm={(result) => void confirm(result)}
-      onDismiss={() => void dismiss()}
-    />
+    <>
+      {notice ? <MercadoPagoSavedNotice expense={notice} onClose={closeNotice} /> : null}
+      {modal ? (
+        <MercadoPagoExpensePrompt
+          review={modal}
+          settings={settings}
+          busy={busy}
+          onConfirm={(result) => void confirm(result)}
+          onDismiss={() => void dismiss()}
+        />
+      ) : null}
+    </>
   )
 }
 
@@ -215,12 +265,13 @@ async function saveAuto(
   periods: Period[],
   selectedPeriod: Period | null,
   createExpense: (input: CreateExpenseInput) => Promise<unknown>,
-): Promise<'saved' | 'needs-period' | 'failed'> {
+): Promise<'saved' | 'taken' | 'needs-period' | 'failed'> {
   const period = periodForMercadoPagoNotice(periods, expense.postedAt, selectedPeriod)
   if (!period) return 'needs-period'
   const detail = expense.detail.trim()
-  rememberMercadoPagoApplied(userId, expense.externalId)
   try {
+    const claim = await claimMercadoPagoRegistration(userId, expense.externalId)
+    if (claim === 'taken') return 'taken'
     await createExpense({
       periodId: period.id,
       accountType: expense.accountType,
@@ -232,7 +283,7 @@ async function saveAuto(
     })
     return 'saved'
   } catch (error) {
-    forgetMercadoPagoApplied(userId, expense.externalId)
+    await releaseMercadoPagoRegistration(userId, expense.externalId)
     toast.error(getErrorMessage(error, 'No se pudo registrar el gasto'))
     return 'failed'
   }
